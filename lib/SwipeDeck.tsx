@@ -11,12 +11,11 @@ interface SwipeDeckProps<T extends object> {
   onSwipeRight?: (item: T) => void;
   onSwipeUp?: (item: T) => void;
   onSwipeDown?: (item: T) => void;
-  onCardRemoved?: () => void;
   onRemainingChange?: (count: number) => void;
 }
 
 const SwipeDeckInner = <T extends object>(
-  { ItemComponent, onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown, onCardRemoved, onRemainingChange }: SwipeDeckProps<T>,
+  { ItemComponent, onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown, onRemainingChange }: SwipeDeckProps<T>,
   ref: React.ForwardedRef<SwipeDeckRef<T>>,
 ) => {
   const {
@@ -28,7 +27,7 @@ const SwipeDeckInner = <T extends object>(
     setSwipeableStatusToDoneAnimating,
     setSwipeableStatusToIdle,
     undoFromHistory,
-  } = useSwipeState<T>({ onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown, onCardRemoved, onRemainingChange });
+  } = useSwipeState<T>({ onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown, onRemainingChange });
 
   useImperativeHandle(ref, () => ({
     swipeLeft: () => {

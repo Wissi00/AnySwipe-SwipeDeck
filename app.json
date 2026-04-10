@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "SwipeLogic",
-    "slug": "SwipeLogic",
+    "name": "AnySwipe-SwipeDeck",
+    "slug": "anyswipe-swipedeck",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "swipelogic",
+    "scheme": "anyswipe-swipedeck",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
