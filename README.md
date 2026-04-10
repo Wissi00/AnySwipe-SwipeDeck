@@ -1,44 +1,77 @@
-# AnySwipe-SwipeDeck
+# SwipeDeck
 
-A headless, generic swipe-deck library for React Native. Bring your own card component — AnySwipe-SwipeDeck handles the gesture detection, animation, history, and infinite loading pattern.
+A headless, 4-direction swipe-deck library for React Native. Bring your own card component — SwipeDeck handles gesture detection, 60fps animations, undo history, and batch loading.
+
+Built as the core interaction layer for [AnySwipe](https://anyswipe-ce76c.web.app), a Tinder-style anime and TV show discovery app.
+
+---
+
+## What it is
+
+SwipeDeck gives you a gesture-driven card stack where users can swipe in any of four directions. It is completely headless — you supply the card UI, SwipeDeck supplies everything else: the gesture system, animation state machine, undo history stack, and the batch-loading trigger.
+
+**Who it is for:** React Native developers building swipe-driven interfaces — discovery feeds, content triage tools, watchlist managers, or anything where a user needs to make a quick decision on a stream of cards.
+
+**What problem it solves:** Most swipe libraries only support left/right, are tightly coupled to their own card UI, or require you to manage swipe state yourself. SwipeDeck supports all four directions, renders whatever component you pass in, and keeps internal state entirely out of your way.
+
+---
 
 ## Features
 
-- Swipe in 4 directions: left, right, up, down
-- Gesture-driven **and** programmatic swiping
-- Built-in undo with animated card restore
-- Internal history — no state management required from the consumer
-- Imperative data loading via `appendData` — feed batches as needed
-- `onRemainingChange` hook for infinite-scroll style pagination
-- Fully generic: your card component receives only its own props
+- Swipe in 4 directions: left, right, up, and down
+- Gesture-driven and programmatic swiping from buttons or any other trigger
+- Built-in undo with animated card restore — no extra state needed on your side
+- Internal history stack managed entirely by the library
+- Feed new cards at any time via `appendData`
+- `onRemainingChange` fires automatically as idle card count changes, making infinite scroll trivial to implement
+- Fully generic — `<SwipeDeck>` renders whatever component you give it, with your own props passed through directly
+- Optional `debug` prop for verbose console logging of internal state transitions
 
-## Requirements
-
-- `react-native-gesture-handler`
-- `react-native-reanimated`
+---
 
 ## Installation
 
+> This library is not yet published to npm. Copy the `lib/` directory into your project to use it.
+
+You must have the following peer dependencies installed and linked:
+
 ```sh
-# (not yet published — copy lib/ into your project)
+npm install react-native-gesture-handler react-native-reanimated
 ```
+
+For Expo projects, use `npx expo install` instead to get versions matched to your Expo SDK:
+
+```sh
+npx expo install react-native-gesture-handler react-native-reanimated
+```
+
+Follow the setup guides for each package:
+
+- [react-native-gesture-handler setup](https://docs.swmansion.com/react-native-gesture-handler/docs/fundamentals/installation)
+- [react-native-reanimated setup](https://docs.swmansion.com/react-native-reanimated/docs/fundamentals/getting-started)
+
+On Android, make sure `<GestureHandlerRootView>` wraps your app root if your navigation setup does not already include one.
+
+---
 
 ## Quick Start
 
 ```tsx
 import { SwipeDeck, useSwipeDeck, createSwipeableData } from "@/lib";
+import { useRef } from "react";
+import { Button, Image } from "react-native";
 
-type CardData = { title: string; image: string };
+type CardData = { title: string; imageUri: string };
 
-function MyCard({ title, image }: CardData) {
-  return <Image source={{ uri: image }} />;
+function MyCard({ title, imageUri }: CardData) {
+  return <Image source={{ uri: imageUri }} style={{ width: 300, height: 400 }} />;
 }
 
 const BATCH_SIZE = 10;
 const LOAD_THRESHOLD = 4;
 
 export default function Feed() {
-  const { deckRef, swipeLeft, swipeRight, undo, appendData } = useSwipeDeck<CardData>();
+  const { deckRef, swipeLeft, swipeRight, swipeUp, swipeDown, undo, appendData } = useSwipeDeck<CardData>();
 
   const indexRef = useRef(0);
 
@@ -48,44 +81,49 @@ export default function Feed() {
     appendData(batch);
   };
 
-  useEffect(() => {
-    loadBatch();
-  }, []);
+  // onRemainingChange fires with count=0 on first mount — use it as the initial load trigger
+  const handleRemainingChange = (count: number) => {
+    if (count <= LOAD_THRESHOLD) loadBatch();
+  };
 
   return (
     <>
       <SwipeDeck
         ref={deckRef}
         ItemComponent={MyCard}
-        onSwipeLeft={(item) => console.log("disliked", item)}
+        onSwipeLeft={(item) => console.log("skipped", item)}
         onSwipeRight={(item) => console.log("liked", item)}
-        onRemainingChange={(count) => {
-          if (count <= LOAD_THRESHOLD) loadBatch();
-        }}
+        onSwipeUp={(item) => console.log("plan to watch", item)}
+        onSwipeDown={(item) => console.log("watching", item)}
+        onRemainingChange={handleRemainingChange}
       />
       <Button title="Undo" onPress={undo} />
       <Button title="Skip" onPress={swipeLeft} />
       <Button title="Like" onPress={swipeRight} />
+      <Button title="Plan to Watch" onPress={swipeUp} />
+      <Button title="Watching" onPress={swipeDown} />
     </>
   );
 }
 ```
 
-## API
+---
+
+## API Reference
 
 ### `useSwipeDeck<T>()`
 
-The primary consumer hook. Returns everything needed to control the deck.
+The primary consumer hook. Returns a ref to wire up to `<SwipeDeck>` and all control functions.
 
 ```ts
 const {
-  deckRef, // ref to pass to <SwipeDeck ref={deckRef} />
-  swipeLeft, // programmatically swipe the top card left
-  swipeRight, // programmatically swipe the top card right
-  swipeUp, // programmatically swipe the top card up
-  swipeDown, // programmatically swipe the top card down
-  undo, // restore the last swiped card with an animate-in
-  appendData, // append a batch of SwipeableData<T> to the deck
+  deckRef, // Ref to pass to <SwipeDeck ref={deckRef} />
+  swipeLeft, // Programmatically swipe the top card left
+  swipeRight, // Programmatically swipe the top card right
+  swipeUp, // Programmatically swipe the top card up
+  swipeDown, // Programmatically swipe the top card down
+  undo, // Restore the last swiped card with an animate-in
+  appendData, // Append a SwipeableData<T>[] batch to the deck
 } = useSwipeDeck<CardData>();
 ```
 
@@ -101,33 +139,40 @@ const {
   onSwipeRight={(item) => {}}
   onSwipeUp={(item) => {}}
   onSwipeDown={(item) => {}}
-  onCardRemoved={() => {}}
   onRemainingChange={(count) => {}}
+  debug
 />
 ```
 
 #### Props
 
-| Prop                | Type                      | Description                                                                                   |
-| ------------------- | ------------------------- | --------------------------------------------------------------------------------------------- |
-| `ref`               | `SwipeDeckRef<T>`         | Ref from `useSwipeDeck`. Required for programmatic control.                                   |
-| `ItemComponent`     | `React.ComponentType<T>`  | The card component. Receives your domain data as props.                                       |
-| `onSwipeLeft`       | `(item: T) => void`       | Fired when a card is swiped left.                                                             |
-| `onSwipeRight`      | `(item: T) => void`       | Fired when a card is swiped right.                                                            |
-| `onSwipeUp`         | `(item: T) => void`       | Fired when a card is swiped up.                                                               |
-| `onSwipeDown`       | `(item: T) => void`       | Fired when a card is swiped down.                                                             |
-| `onCardRemoved`     | `() => void`              | Fired after a card fully animates out and is released from the deck.                          |
-| `onRemainingChange` | `(count: number) => void` | Fired whenever the number of idle cards in the deck changes. Use this to trigger batch loads. |
+| Prop                | Type                      | Required | Description                                                                                                   |
+| ------------------- | ------------------------- | -------- | ------------------------------------------------------------------------------------------------------------- |
+| `ref`               | `SwipeDeckRef<T>`         | Yes      | Ref from `useSwipeDeck`. Required for programmatic control.                                                   |
+| `ItemComponent`     | `React.ComponentType<T>`  | Yes      | Your card component. Receives your domain data directly as props.                                             |
+| `onSwipeLeft`       | `(item: T) => void`       | No       | Called when a card is swiped left.                                                                            |
+| `onSwipeRight`      | `(item: T) => void`       | No       | Called when a card is swiped right.                                                                           |
+| `onSwipeUp`         | `(item: T) => void`       | No       | Called when a card is swiped up.                                                                              |
+| `onSwipeDown`       | `(item: T) => void`       | No       | Called when a card is swiped down.                                                                            |
+| `onRemainingChange` | `(count: number) => void` | No       | Called whenever the idle card count changes. Fires with `0` on first mount — use as the initial load trigger. |
+| `debug`             | `boolean`                 | No       | Enables verbose console logging of internal state transitions. Defaults to `false`.                           |
 
 ---
 
 ### `createSwipeableData<T>(data: T): SwipeableData<T>`
 
-Wraps your domain data in the internal format expected by `appendData`. Auto-assigns a unique ID.
+Wraps your domain data in the internal format required by `appendData`. Auto-assigns a unique ID.
 
 ```ts
-const card = createSwipeableData({ title: "Hello", image: "..." });
-// { id: 0, status: 'idle', data: { title: 'Hello', image: '...' } }
+const card = createSwipeableData({ title: "My Show", imageUri: "https://..." });
+// { id: 0, status: 'idle', data: { title: 'My Show', imageUri: '...' } }
+```
+
+Use this when building a batch before calling `appendData`:
+
+```ts
+const batch = rawItems.map(createSwipeableData);
+appendData(batch);
 ```
 
 ---
@@ -158,30 +203,98 @@ interface SwipeDeckRef<T extends object> {
 
 ---
 
-## Infinite Loading Pattern
+## Demo App
 
-`onRemainingChange` fires every time the idle card count changes (a card is swiped, an undo restores one, a batch is appended). Use it instead of managing a counter yourself:
+The `app/` directory contains a working Expo demo app. It renders a stack of colored cards and wires up all four swipe directions, programmatic buttons, undo, and batch loading via `onRemainingChange`.
 
-```tsx
-<SwipeDeck
-  ref={deckRef}
-  ItemComponent={MyCard}
-  onRemainingChange={(count) => {
-    if (count <= 4) loadNextBatch();
-  }}
-/>
+### Run locally
+
+```sh
+git clone https://github.com/Wissi00/AnySwipe-SwipeDeck.git
+cd AnySwipe-SwipeDeck
+npm install
+npx expo start
 ```
 
-On first mount the deck is empty, so `onRemainingChange(0)` fires immediately — this is the intended trigger for the initial load.
+Press `a` for Android or `i` for iOS. You will need a running emulator or a physical device with the Expo Go app installed.
+
+The demo is for testing and learning the API only — it is not the AnySwipe production app.
 
 ---
 
-## Undo
+## Usage Notes
 
-Undo is fully managed internally. The deck keeps a history of every swiped card. Calling `undo()` pops the last entry and re-inserts it at the top with an animate-in transition. No extra state needed on the consumer side.
+### Infinite loading
+
+`onRemainingChange` fires every time the idle card count changes — when a card is swiped, when undo restores a card, or when a batch is appended. It also fires with `count=0` on first mount, making it the correct trigger for your initial data load without a separate `useEffect`.
+
+```tsx
+const handleRemainingChange = (count: number) => {
+  if (count <= LOAD_THRESHOLD) loadNextBatch();
+};
+```
+
+### Undo
+
+Undo is managed entirely inside the library. Every swiped card is pushed onto an internal history stack. Calling `undo()` pops the last card and re-inserts it at the top with an animate-in transition. If a card is currently mid-swipe, undo cancels that animation instead.
 
 ```ts
 const { undo } = useSwipeDeck<CardData>();
-
 <Button onPress={undo} title="Undo" />
 ```
+
+### Card rendering
+
+Only the top 3 idle cards plus any cards that are currently animating are mounted at a time. Cards deeper in the queue are not rendered until they reach the top, keeping the component tree shallow regardless of batch size.
+
+### Programmatic swiping
+
+All four swipe functions from `useSwipeDeck` target the current top idle card. If the deck is empty or all cards are animating, calls are silently ignored.
+
+### Platform notes
+
+- Requires `react-native-gesture-handler` and `react-native-reanimated` to be installed and linked.
+- On Android, wrap your app root in `<GestureHandlerRootView>` if not already present. `<SwipeDeck>` includes one internally, but your navigation setup may need one at the root level too.
+- For Expo managed workflow, always use `npx expo install` to get SDK-compatible versions of both peer dependencies.
+
+---
+
+## Development
+
+```sh
+# Install dependencies
+npm install
+
+# Start the Expo dev server
+npx expo start
+
+# Run on Android
+npx expo start --android
+
+# Lint
+npx expo lint
+```
+
+The library source lives entirely in `lib/`. The Expo app in `app/` is the development harness and is not part of the publishable package.
+
+---
+
+## Contributing
+
+Issues and pull requests are welcome on [GitHub](https://github.com/Wissi00/AnySwipe-SwipeDeck).
+
+- Keep changes focused — one concern per PR.
+- Match the existing code style (TypeScript, no default exports from library files).
+- For larger changes or new features, open an issue first to discuss the approach before writing code.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+---
+
+## Support
+
+Open an issue on [GitHub](https://github.com/Wissi00/AnySwipe-SwipeDeck/issues) for bugs, questions, or feature requests.

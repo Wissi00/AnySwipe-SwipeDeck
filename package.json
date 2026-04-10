@@ -1,7 +1,9 @@
 {
-  "name": "anyswipe-swipedeck",
-  "main": "expo-router/entry",
+  "name": "anyswipe-swipedeck-demo",
   "version": "1.0.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "description": "Expo demo app for the AnySwipe SwipeDeck library.",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
@@ -42,6 +44,5 @@
     "typescript": "~5.9.2",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0"
-  },
-  "private": true
+  }
 }
