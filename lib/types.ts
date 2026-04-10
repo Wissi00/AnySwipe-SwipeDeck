@@ -9,12 +9,13 @@ export type SwipeableData<T> = {
     data: T;
 };
 
-export interface SwipeDeckRef<T> {
+export interface SwipeDeckRef<T extends object> {
     swipeLeft: () => void;
     swipeRight: () => void;
     swipeUp: () => void;
     swipeDown: () => void;
-    undo: (item?: T) => void;
+    undo: () => void;
+    appendData: (items: SwipeableData<T>[]) => void;
 }
 
 let _nextId = 0;

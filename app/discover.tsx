@@ -2,34 +2,31 @@ import { MediaCard } from "@/components/MediaCard";
 import { createSwipeableData, SwipeDeck, useSwipeDeck } from "@/lib";
 import { styles } from "@/styles/Discover.styles";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-type MediaCardData = { color: string };
+type MediaCardData = { color?: string };
+
+const BATCH_SIZE = 12;
+const LOAD_MORE_THRESHOLD = 6;
 
 export default function Discover() {
-    const { deckRef, swipeLeft, swipeRight, swipeUp, swipeDown, undo } = useSwipeDeck<MediaCardData>();
+    const { deckRef, swipeLeft, swipeRight, swipeUp, swipeDown, undo, appendData } = useSwipeDeck<MediaCardData>();
 
-    const totalCreatedCardsRef = useRef(12);
+    const nextHueIndexRef = useRef(0);
 
-    const generateBatch = (startIndex: number) =>
-        Array.from({ length: 12 }).map((_, index) => {
+    const loadBatch = () => {
+        console.log("🛜 loading batch");
+
+        const startIndex = nextHueIndexRef.current;
+        const batch = Array.from({ length: BATCH_SIZE }).map((_, index) => {
             const h = ((startIndex + index) * 137.5) % 360;
             return createSwipeableData({ color: `hsl(${h}, 70%, 60%)` });
         });
-
-    const [cardsData, setCardsData] = useState(() => generateBatch(0));
-    const swipedStackRef = useRef<MediaCardData[]>([]);
-
-    useEffect(() => {
-        if (cardsData.length <= 6) {
-            console.log("Action: Loading more cards...");
-            const nextID = totalCreatedCardsRef.current;
-            setCardsData((prev) => [...prev, ...generateBatch(nextID)]);
-            totalCreatedCardsRef.current += 12;
-        }
-    }, [cardsData.length]);
+        nextHueIndexRef.current += BATCH_SIZE;
+        appendData(batch);
+    };
 
     const handleSwipeLeft = (item: MediaCardData) => {
         console.log(`Action: Card swiped LEFT`, item);
@@ -47,31 +44,24 @@ export default function Discover() {
         console.log(`Action: Card swiped DOWN`, item);
     };
 
-    const addRemovedCardToHistoryAndCheckLoadMore = (item: MediaCardData) => {
-        swipedStackRef.current.push(item);
-        setCardsData((prev) => prev.filter((c) => c.data !== item));
-        console.log(`HISTORY: Card removed, stack size: ${swipedStackRef.current.length}`);
-    };
-
-    const handleUndo = () => {
-        const itemToRestore = swipedStackRef.current.pop();
-        undo(itemToRestore);
+    const handleRemainingChange = (count: number) => {
+        console.log(`Remaining cards changed: ${count}`);
+        if (count <= LOAD_MORE_THRESHOLD) loadBatch();
     };
 
     return (
         <SafeAreaView style={styles.container}>
             <SwipeDeck
                 ref={deckRef}
-                data={cardsData}
                 ItemComponent={MediaCard}
                 onSwipeLeft={handleSwipeLeft}
                 onSwipeRight={handleSwipeRight}
                 onSwipeUp={handleSwipeUp}
                 onSwipeDown={handleSwipeDown}
-                onCardRemoved={addRemovedCardToHistoryAndCheckLoadMore}
+                onRemainingChange={handleRemainingChange}
             />
 
-            <TouchableOpacity style={styles.undoButton} onPress={handleUndo}>
+            <TouchableOpacity style={styles.undoButton} onPress={undo}>
                 <Ionicons name="refresh" size={24} color="white" />
             </TouchableOpacity>
 
