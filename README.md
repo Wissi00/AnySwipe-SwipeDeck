@@ -24,6 +24,7 @@ SwipeDeck gives you a gesture-driven card stack where users can swipe in any of 
 - Internal history stack managed entirely by the library
 - Feed new cards at any time via `appendData`
 - `onRemainingChange` fires automatically as idle card count changes, making infinite scroll trivial to implement
+- Customizable swipe overlays with color, directional icons, and opacity controls per direction
 - Fully generic — `<SwipeDeck>` renders whatever component you give it, with your own props passed through directly
 - Optional `debug` prop for verbose console logging of internal state transitions
 
@@ -140,6 +141,10 @@ const {
   onSwipeUp={(item) => {}}
   onSwipeDown={(item) => {}}
   onRemainingChange={(count) => {}}
+  overlayConfig={{
+    left: { color: "#FF3B30", icon: <MyIcon />, maxOpacity: 0.9 },
+    right: { color: "#4CD964" },
+  }}
   debug
 />
 ```
@@ -155,6 +160,7 @@ const {
 | `onSwipeUp`         | `(item: T) => void`       | No       | Called when a card is swiped up.                                                                              |
 | `onSwipeDown`       | `(item: T) => void`       | No       | Called when a card is swiped down.                                                                            |
 | `onRemainingChange` | `(count: number) => void` | No       | Called whenever the idle card count changes. Fires with `0` on first mount — use as the initial load trigger. |
+| `overlayConfig`     | `SwipeOverlayConfig`      | No       | Configures visual overlays (colors, icons, opacities) that appear during swipes in each direction.            |
 | `debug`             | `boolean`                 | No       | Enables verbose console logging of internal state transitions. Defaults to `false`.                           |
 
 ---
@@ -180,6 +186,19 @@ appendData(batch);
 ### Types
 
 ```ts
+type SwipeOverlayConfig = {
+  left?: DirectionOverlayConfig;
+  right?: DirectionOverlayConfig;
+  up?: DirectionOverlayConfig;
+  down?: DirectionOverlayConfig;
+};
+
+type DirectionOverlayConfig = {
+  color?: string;
+  icon?: React.ReactNode;
+  maxOpacity?: number; // defaults to 1
+};
+
 type SwipeDirection = "left" | "right" | "up" | "down";
 
 type SwipeStatus = "idle" | "animating-in" | "animating-out" | "done-animating";

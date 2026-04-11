@@ -1,4 +1,19 @@
+import type { ReactNode } from 'react';
+
 export type SwipeDirection = 'left' | 'right' | 'up' | 'down';
+
+export type DirectionOverlayConfig = {
+    color?: string;
+    icon?: ReactNode;
+    maxOpacity?: number;
+};
+
+export type SwipeOverlayConfig = {
+    left?: DirectionOverlayConfig;
+    right?: DirectionOverlayConfig;
+    up?: DirectionOverlayConfig;
+    down?: DirectionOverlayConfig;
+};
 
 export type SwipeStatus = 'idle' | 'animating-in' | 'animating-out' | 'done-animating';
 

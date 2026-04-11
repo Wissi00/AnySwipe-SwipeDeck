@@ -77,6 +77,10 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
     const velocityX = useSharedValue(0);
     const velocityY = useSharedValue(0);
 
+    // True when the gesture itself already started the fly-away animation,
+    // so the useEffect for 'animating-out' knows to skip its duplicate animation.
+    const dismissedByGesture = useSharedValue(false);
+
     const gesture = Gesture.Pan()
         .enabled(isTopSwipeable)
         .onUpdate((event) => {
@@ -96,13 +100,47 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
             const absY = Math.abs(translateY.value);
             const isHorizontalDominant = absX > absY;
 
+            const currentWidth = swipeableWidth.value || screenWidth;
+            const currentHeight = swipeableHeight.value || screenHeight;
+            const horizontalExit = (screenWidth / 2) + (currentWidth / 2) + 100;
+            const verticalExit = (screenHeight / 2) + (currentHeight / 2) + 100;
+
+            const calcDur = (target: number, current: number, velocity: number) => {
+                'worklet';
+                const absVelocity = Math.abs(velocity);
+                if (absVelocity > 50) {
+                    return Math.min(300, Math.max(100, (Math.abs(target - current) / absVelocity) * 1000));
+                }
+                return 300;
+            };
+
             if (isHorizontalDominant && shouldSwipeRight) {
+                dismissedByGesture.value = true;
+                const dur = calcDur(horizontalExit, translateX.value, event.velocityX);
+                translateX.value = withTiming(horizontalExit, { duration: dur, easing: Easing.in(Easing.quad) }, (finished) => {
+                    if (finished && onAnimationOutComplete) runOnJS(onAnimationOutComplete)();
+                });
                 if (onSwipeRight) runOnJS(onSwipeRight)();
             } else if (isHorizontalDominant && shouldSwipeLeft) {
+                dismissedByGesture.value = true;
+                const dur = calcDur(-horizontalExit, translateX.value, event.velocityX);
+                translateX.value = withTiming(-horizontalExit, { duration: dur, easing: Easing.in(Easing.quad) }, (finished) => {
+                    if (finished && onAnimationOutComplete) runOnJS(onAnimationOutComplete)();
+                });
                 if (onSwipeLeft) runOnJS(onSwipeLeft)();
             } else if (!isHorizontalDominant && shouldSwipeUp) {
+                dismissedByGesture.value = true;
+                const dur = calcDur(-verticalExit, translateY.value, event.velocityY);
+                translateY.value = withTiming(-verticalExit, { duration: dur, easing: Easing.in(Easing.quad) }, (finished) => {
+                    if (finished && onAnimationOutComplete) runOnJS(onAnimationOutComplete)();
+                });
                 if (onSwipeUp) runOnJS(onSwipeUp)();
             } else if (!isHorizontalDominant && shouldSwipeDown) {
+                dismissedByGesture.value = true;
+                const dur = calcDur(verticalExit, translateY.value, event.velocityY);
+                translateY.value = withTiming(verticalExit, { duration: dur, easing: Easing.in(Easing.quad) }, (finished) => {
+                    if (finished && onAnimationOutComplete) runOnJS(onAnimationOutComplete)();
+                });
                 if (onSwipeDown) runOnJS(onSwipeDown)();
             } else {
                 translateX.value = withTiming(0, { duration: 300 });

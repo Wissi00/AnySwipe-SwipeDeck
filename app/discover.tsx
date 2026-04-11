@@ -6,10 +6,10 @@ import React, { useRef } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-type MediaCardData = { color?: string };
+type MediaCardData = { id: string };
 
-const BATCH_SIZE = 12;
-const LOAD_MORE_THRESHOLD = 6;
+const BATCH_SIZE = 7;
+const LOAD_MORE_THRESHOLD = 3;
 
 export default function Discover() {
   const { deckRef, swipeLeft, swipeRight, swipeUp, swipeDown, undo, appendData } = useSwipeDeck<MediaCardData>();
@@ -21,27 +21,26 @@ export default function Discover() {
 
     const startIndex = nextHueIndexRef.current;
     const batch = Array.from({ length: BATCH_SIZE }).map((_, index) => {
-      const h = ((startIndex + index) * 137.5) % 360;
-      return createSwipeableData({ color: `hsl(${h}, 70%, 60%)` });
+      return createSwipeableData({ id: String(startIndex + index + 1) });
     });
     nextHueIndexRef.current += BATCH_SIZE;
     appendData(batch);
   };
 
   const handleSwipeLeft = (item: MediaCardData) => {
-    console.log(`Action: Card swiped LEFT`, item);
+   //console.log(`Action: Card swiped LEFT`, item);
   };
 
   const handleSwipeRight = (item: MediaCardData) => {
-    console.log(`Action: Card swiped RIGHT`, item);
+    //console.log(`Action: Card swiped RIGHT`, item);
   };
 
   const handleSwipeUp = (item: MediaCardData) => {
-    console.log(`Action: Card swiped UP`, item);
+    //console.log(`Action: Card swiped UP`, item);
   };
 
   const handleSwipeDown = (item: MediaCardData) => {
-    console.log(`Action: Card swiped DOWN`, item);
+    //console.log(`Action: Card swiped DOWN`, item);
   };
 
   const handleRemainingChange = (count: number) => {
@@ -59,6 +58,12 @@ export default function Discover() {
         onSwipeUp={handleSwipeUp}
         onSwipeDown={handleSwipeDown}
         onRemainingChange={handleRemainingChange}
+        overlayConfig={{
+          left: { color: "#FF3B30", icon : <Ionicons name="close" size={48} color="white" /> },
+          right: { color: "#4CD964", icon : <Ionicons name="checkmark" size={48} color="white" /> },
+          up: { color: "#FFD60A", icon : <Ionicons name="arrow-up" size={48} color="white" /> },
+          down: { color: "#007AFF", icon : <Ionicons name="arrow-down" size={48} color="white" /> },
+        }}
         debug
       />
 

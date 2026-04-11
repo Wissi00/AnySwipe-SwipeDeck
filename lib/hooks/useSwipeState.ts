@@ -24,12 +24,12 @@ export const useSwipeState = <T extends object>(callbacks: SwipeStateCallbacks<T
   const [swipeablesArray, setSwipeablesArray] = useState<SwipeableData<T>[]>([]);
   const swipedStackRef = useRef<SwipeableData<T>[]>([]);
 
-  const idleCount = swipeablesArray.filter((s) => s.status === "idle").length;
+  const remainingCount = swipeablesArray.length;
 
-  // Load more trigger, always fires on first mount (causes fetching of initial batch)
+  // Load more trigger, always fires on first mount to trigger fetching of initial batch
   useEffect(() => {
-    onRemainingChange?.(idleCount);
-  }, [idleCount]);
+    onRemainingChange?.(remainingCount);
+  }, [remainingCount]);
 
   const deckLog = swipeablesArray
     .map((s) => {
@@ -37,7 +37,7 @@ export const useSwipeState = <T extends object>(callbacks: SwipeStateCallbacks<T
       return `#${s.id}(${statusLabel})`;
     })
     .join(" ");
-  log("SWIPEABLE_ARRAY:", `[ ${deckLog} ]`);
+  log("🃏 Deck array changed:", `[ ${deckLog} ]`);
 
   const appendData = (items: SwipeableData<T>[]) => {
     setSwipeablesArray((prev) => [...prev, ...items]);
@@ -45,7 +45,6 @@ export const useSwipeState = <T extends object>(callbacks: SwipeStateCallbacks<T
 
   const setSwipeableStatusToAnimatingOut = (id: number, direction: SwipeDirection) => {
     setSwipeablesArray((prev) => prev.map((s) => (s.id === id ? { ...s, status: "animating-out", direction } : s)));
-    log(`ARRAY_UPDATE: Card ${id} set to animating-out`);
   };
 
   const setLastAnimatingOutStatusToAnimatingIn = () => {
@@ -58,10 +57,14 @@ export const useSwipeState = <T extends object>(callbacks: SwipeStateCallbacks<T
         return prev;
       }
     });
-    log(`ARRAY_UPDATE: Last animating-out card set to animating-in`);
   };
 
-  const setStatusAndRelaySwipe = (swipeable: SwipeableData<T>, direction: SwipeDirection) => {
+  const setStatusOutAndRelaySwipe = (swipeable: SwipeableData<T>, direction: SwipeDirection) => {
+    const hasAnimatingIn = swipeablesArray.some((s) => s.status === "animating-in"); // If a card is currently animating in, we consider the deck "locked" and ignore swipe attempts until the animation is done. 
+    if (swipeable.id !== topSwipeableId || hasAnimatingIn) {
+      warn(`SWIPE ATTEMPT LOCKED}`);
+      return;
+    }
     switch (direction) {
       case "left":
         onSwipeLeft?.(swipeable.data);
@@ -83,8 +86,8 @@ export const useSwipeState = <T extends object>(callbacks: SwipeStateCallbacks<T
   useEffect(() => {
     if (swipeablesArray.length > 0 && swipeablesArray[0].status === "done-animating") {
       const topCard = swipeablesArray[0];
-      log(`GATEKEEPER: Card ${topCard.id} released to history.`);
       swipedStackRef.current.push(topCard);
+      log(`GATEKEEPER: Card ${topCard.id} released to history. History array : [${swipedStackRef.current.map((s) => `#${s.id}`).join(" ")}]`);
       setSwipeablesArray((prev) => prev.slice(1));
     }
   }, [swipeablesArray]);
@@ -105,9 +108,9 @@ export const useSwipeState = <T extends object>(callbacks: SwipeStateCallbacks<T
       const item = swipedStackRef.current.pop();
       if (item) {
         setSwipeablesArray((prev) => [{ ...item, status: "animating-in" }, ...prev]);
-        log(`UNDO: Item restored from history`);
+        log(`↩️: Item restored from history`);
       } else {
-        warn(`UNDO: No item in history`);
+        warn(`↩️: No item in history`);
       }
     }
   };
@@ -129,7 +132,7 @@ export const useSwipeState = <T extends object>(callbacks: SwipeStateCallbacks<T
     swipeablesToRender,
     topSwipeableId,
     appendData,
-    setStatusAndRelaySwipe,
+    setStatusOutAndRelaySwipe,
     setSwipeableStatusToDoneAnimating,
     setSwipeableStatusToIdle,
     undoFromHistory,

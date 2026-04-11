@@ -6,4 +6,10 @@ export const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
+    overlay: {
+        ...StyleSheet.absoluteFillObject,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
 });
