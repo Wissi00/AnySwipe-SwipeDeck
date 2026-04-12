@@ -16,7 +16,7 @@ You must already have these installed in your app:
 - `react-native`
 - `react-native-gesture-handler`
 - `react-native-reanimated`
-- `react-native-worklets`
+- `react-native-worklets` (required by `react-native-reanimated`)
 
 ## Usage
 

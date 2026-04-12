@@ -8,7 +8,8 @@ import Animated, {
     runOnJS,
     useAnimatedStyle,
     useSharedValue,
-    withTiming
+    withTiming,
+    type SharedValue,
 } from 'react-native-reanimated';
 import { styles } from './styles/SwipeableWrapper.styles';
 import { SwipeDirection, SwipeOverlayConfig, SwipeStatus } from './types';
@@ -27,6 +28,8 @@ export interface SwipeableWrapperProps {
     onSwipeDown?: () => void;
     onAnimationOutComplete?: () => void;
     onAnimationInComplete?: () => void;
+    frontCardTranslateX?: SharedValue<number>;
+    frontCardTranslateY?: SharedValue<number>;
 }
 
 const SWIPE_THRESHOLD = screenWidth * 0.35;
@@ -47,7 +50,9 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
     onSwipeUp,
     onSwipeDown,
     onAnimationOutComplete,
-    onAnimationInComplete
+    onAnimationInComplete,
+    frontCardTranslateX,
+    frontCardTranslateY,
 }) => {
     // Initialize positions based on status to prevent the (0,0) flash on mount
     const getInitialX = () => {
@@ -86,6 +91,8 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
         .onUpdate((event) => {
             translateX.value = event.translationX;
             translateY.value = event.translationY;
+            if (frontCardTranslateX) frontCardTranslateX.value = event.translationX;
+            if (frontCardTranslateY) frontCardTranslateY.value = event.translationY;
         })
         .onEnd((event) => {
             velocityX.value = event.velocityX;
@@ -120,6 +127,7 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
                 translateX.value = withTiming(horizontalExit, { duration: dur, easing: Easing.in(Easing.quad) }, (finished) => {
                     if (finished && onAnimationOutComplete) runOnJS(onAnimationOutComplete)();
                 });
+                if (frontCardTranslateX) frontCardTranslateX.value = withTiming(horizontalExit, { duration: dur, easing: Easing.in(Easing.quad) });
                 if (onSwipeRight) runOnJS(onSwipeRight)();
             } else if (isHorizontalDominant && shouldSwipeLeft) {
                 dismissedByGesture.value = true;
@@ -127,6 +135,7 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
                 translateX.value = withTiming(-horizontalExit, { duration: dur, easing: Easing.in(Easing.quad) }, (finished) => {
                     if (finished && onAnimationOutComplete) runOnJS(onAnimationOutComplete)();
                 });
+                if (frontCardTranslateX) frontCardTranslateX.value = withTiming(-horizontalExit, { duration: dur, easing: Easing.in(Easing.quad) });
                 if (onSwipeLeft) runOnJS(onSwipeLeft)();
             } else if (!isHorizontalDominant && shouldSwipeUp) {
                 dismissedByGesture.value = true;
@@ -134,6 +143,7 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
                 translateY.value = withTiming(-verticalExit, { duration: dur, easing: Easing.in(Easing.quad) }, (finished) => {
                     if (finished && onAnimationOutComplete) runOnJS(onAnimationOutComplete)();
                 });
+                if (frontCardTranslateY) frontCardTranslateY.value = withTiming(-verticalExit, { duration: dur, easing: Easing.in(Easing.quad) });
                 if (onSwipeUp) runOnJS(onSwipeUp)();
             } else if (!isHorizontalDominant && shouldSwipeDown) {
                 dismissedByGesture.value = true;
@@ -141,10 +151,13 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
                 translateY.value = withTiming(verticalExit, { duration: dur, easing: Easing.in(Easing.quad) }, (finished) => {
                     if (finished && onAnimationOutComplete) runOnJS(onAnimationOutComplete)();
                 });
+                if (frontCardTranslateY) frontCardTranslateY.value = withTiming(verticalExit, { duration: dur, easing: Easing.in(Easing.quad) });
                 if (onSwipeDown) runOnJS(onSwipeDown)();
             } else {
                 translateX.value = withTiming(0, { duration: 300 });
                 translateY.value = withTiming(0, { duration: 300 });
+                if (frontCardTranslateX) frontCardTranslateX.value = withTiming(0, { duration: 300 });
+                if (frontCardTranslateY) frontCardTranslateY.value = withTiming(0, { duration: 300 });
             }
         });
 
@@ -156,7 +169,7 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
         const absDistance = Math.abs(target - translate);
         const absVelocity = Math.abs(velocity);
         if (absVelocity > 50) {
-            duration = Math.min(300, Math.max(100, (absDistance / absVelocity) * 1000));
+            duration = Math.min(300, Math.max(150, (absDistance / absVelocity) * 1000));
         }
         return duration;
     }
@@ -196,6 +209,8 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
                         runOnJS(onAnimationOutComplete)();
                     }
                 });
+                if (frontCardTranslateX) frontCardTranslateX.value = withTiming(targetX, { duration, easing: Easing.in(Easing.quad) });
+                if (frontCardTranslateY) frontCardTranslateY.value = withTiming(targetY, { duration, easing: Easing.in(Easing.quad) });
 
             } else if (direction === 'up' || direction === 'down') {
                 duration = calculateDuration(targetY, translateY.value, velocityY.value);
@@ -206,6 +221,8 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
                         runOnJS(onAnimationOutComplete)();
                     }
                 });
+                if (frontCardTranslateX) frontCardTranslateX.value = withTiming(targetX, { duration, easing: Easing.in(Easing.quad) });
+                if (frontCardTranslateY) frontCardTranslateY.value = withTiming(targetY, { duration, easing: Easing.in(Easing.quad) });
             }
         } else if (status === 'animating-in') {
 
@@ -216,6 +233,8 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
                     runOnJS(onAnimationInComplete)();
                 }
             });
+            if (frontCardTranslateX) frontCardTranslateX.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
+            if (frontCardTranslateY) frontCardTranslateY.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
         } else if (status === 'idle') {
             translateX.value = withTiming(0, { duration: 300 });
             translateY.value = withTiming(0, { duration: 300 });
