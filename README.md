@@ -20,10 +20,11 @@ SwipeDeck gives you a gesture-driven card stack where users can swipe in any of 
 
 - Swipe in 4 directions: left, right, up, and down
 - Gesture-driven and programmatic swiping from buttons or any other trigger
+- Animated card stack — back cards appear at a visual offset and scale, and dynamically scale up as the top card is dragged
 - Built-in undo with animated card restore — no extra state needed on your side
 - Internal history stack managed entirely by the library
 - Feed new cards at any time via `appendData`
-- `onRemainingChange` fires automatically as idle card count changes, making infinite scroll trivial to implement
+- `onRemainingChange` fires automatically as the card count changes, making infinite scroll trivial to implement
 - Customizable swipe overlays with color, directional icons, and opacity controls per direction
 - Fully generic — `<SwipeDeck>` renders whatever component you give it, with your own props passed through directly
 - Optional `debug` prop for verbose console logging of internal state transitions
@@ -37,13 +38,13 @@ SwipeDeck gives you a gesture-driven card stack where users can swipe in any of 
 You must have the following peer dependencies installed and linked:
 
 ```sh
-npm install react-native-gesture-handler react-native-reanimated
+npm install react-native-gesture-handler react-native-reanimated react-native-worklets
 ```
 
 For Expo projects, use `npx expo install` instead to get versions matched to your Expo SDK:
 
 ```sh
-npx expo install react-native-gesture-handler react-native-reanimated
+npx expo install react-native-gesture-handler react-native-reanimated react-native-worklets
 ```
 
 Follow the setup guides for each package:
@@ -159,7 +160,7 @@ const {
 | `onSwipeRight`      | `(item: T) => void`       | No       | Called when a card is swiped right.                                                                           |
 | `onSwipeUp`         | `(item: T) => void`       | No       | Called when a card is swiped up.                                                                              |
 | `onSwipeDown`       | `(item: T) => void`       | No       | Called when a card is swiped down.                                                                            |
-| `onRemainingChange` | `(count: number) => void` | No       | Called whenever the idle card count changes. Fires with `0` on first mount — use as the initial load trigger. |
+| `onRemainingChange` | `(count: number) => void` | No       | Called whenever the remaining card count changes. Fires with `0` on first mount — use as the initial load trigger. |
 | `overlayConfig`     | `SwipeOverlayConfig`      | No       | Configures visual overlays (colors, icons, opacities) that appear during swipes in each direction.            |
 | `debug`             | `boolean`                 | No       | Enables verbose console logging of internal state transitions. Defaults to `false`.                           |
 
@@ -245,7 +246,7 @@ The demo is for testing and learning the API only — it is not the AnySwipe pro
 
 ### Infinite loading
 
-`onRemainingChange` fires every time the idle card count changes — when a card is swiped, when undo restores a card, or when a batch is appended. It also fires with `count=0` on first mount, making it the correct trigger for your initial data load without a separate `useEffect`.
+`onRemainingChange` fires every time the remaining card count changes — when a card is fully swiped off, when undo restores a card, or when a batch is appended. It also fires with `count=0` on first mount, making it the correct trigger for your initial data load without a separate `useEffect`.
 
 ```tsx
 const handleRemainingChange = (count: number) => {
