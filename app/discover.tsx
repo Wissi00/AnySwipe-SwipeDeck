@@ -2,6 +2,7 @@ import { MediaCard } from "@/components/MediaCard";
 import { createSwipeableData, SwipeDeck, useSwipeDeck } from "@/lib";
 import { styles } from "@/styles/Discover.styles";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React, { useRef } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -12,6 +13,7 @@ const BATCH_SIZE = 7;
 const LOAD_MORE_THRESHOLD = 3;
 
 export default function Discover() {
+  const router = useRouter();
   const { deckRef, swipeLeft, swipeRight, swipeUp, swipeDown, undo, appendData } = useSwipeDeck<MediaCardData>();
 
   const nextHueIndexRef = useRef(0);
@@ -25,6 +27,10 @@ export default function Discover() {
     });
     nextHueIndexRef.current += BATCH_SIZE;
     appendData(batch);
+  };
+
+  const handleCardPress = (item: MediaCardData) => {
+    router.push({ pathname: "/details", params: { cardId: item.id } });
   };
 
   const handleSwipeLeft = (item: MediaCardData) => {
@@ -57,6 +63,7 @@ export default function Discover() {
         onSwipeRight={handleSwipeRight}
         onSwipeUp={handleSwipeUp}
         onSwipeDown={handleSwipeDown}
+        onCardPress={handleCardPress}
         onRemainingChange={handleRemainingChange}
         overlayConfig={{
           left: { color: "#FF3B30", icon : <Ionicons name="close" size={48} color="white" /> },

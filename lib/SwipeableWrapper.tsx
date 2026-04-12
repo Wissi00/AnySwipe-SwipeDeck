@@ -26,6 +26,7 @@ export interface SwipeableWrapperProps {
     onSwipeRight?: () => void;
     onSwipeUp?: () => void;
     onSwipeDown?: () => void;
+    onCardPress?: () => void;
     onAnimationOutComplete?: () => void;
     onAnimationInComplete?: () => void;
     frontCardTranslateX?: SharedValue<number>;
@@ -49,6 +50,7 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
     onSwipeRight,
     onSwipeUp,
     onSwipeDown,
+    onCardPress,
     onAnimationOutComplete,
     onAnimationInComplete,
     frontCardTranslateX,
@@ -86,7 +88,7 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
     // so the useEffect for 'animating-out' knows to skip its duplicate animation.
     const dismissedByGesture = useSharedValue(false);
 
-    const gesture = Gesture.Pan()
+    const panGesture = Gesture.Pan()
         .enabled(isTopSwipeable)
         .onUpdate((event) => {
             translateX.value = event.translationX;
@@ -160,6 +162,16 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
                 if (frontCardTranslateY) frontCardTranslateY.value = withTiming(0, { duration: 300 });
             }
         });
+
+    const tapGesture = Gesture.Tap()
+        .enabled(isTopSwipeable)
+        .maxDistance(10)
+        .maxDuration(250)
+        .onEnd(() => {
+            if (onCardPress) runOnJS(onCardPress)();
+        });
+
+    const gesture = Gesture.Simultaneous(panGesture, tapGesture);
 
 
     // ----------------------------- SWIPE ANIMATION -----------------------------
@@ -333,7 +345,7 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
 
     return (
         <View
-            pointerEvents={(status === 'animating-out') ? 'none' : 'auto'}
+            pointerEvents={isTopSwipeable ? 'auto' : 'none'}
             style={styles.container}>
             <GestureDetector gesture={gesture}>
                 <Animated.View

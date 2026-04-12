@@ -55,13 +55,14 @@ interface SwipeDeckProps<T extends object> {
   onSwipeRight?: (item: T) => void;
   onSwipeUp?: (item: T) => void;
   onSwipeDown?: (item: T) => void;
+  onCardPress?: (item: T) => void;
   onRemainingChange?: (count: number) => void;
   overlayConfig?: SwipeOverlayConfig;
   debug?: boolean;
 }
 
 const SwipeDeckInner = <T extends object>(
-  { ItemComponent, onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown, onRemainingChange, overlayConfig, debug = false }: SwipeDeckProps<T>,
+  { ItemComponent, onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown, onCardPress, onRemainingChange, overlayConfig, debug = false }: SwipeDeckProps<T>,
   ref: React.ForwardedRef<SwipeDeckRef<T>>,
 ) => {
   const {
@@ -123,6 +124,7 @@ const SwipeDeckInner = <T extends object>(
                 onSwipeRight={() => setStatusOutAndRelaySwipe(swipeable, "right")}
                 onSwipeUp={() => setStatusOutAndRelaySwipe(swipeable, "up")}
                 onSwipeDown={() => setStatusOutAndRelaySwipe(swipeable, "down")}
+                onCardPress={() => onCardPress?.(swipeable.data)}
                 onAnimationOutComplete={() => {
                   setSwipeableStatusToDoneAnimating(swipeable.id);
                   topCardTranslateX.value = 0;

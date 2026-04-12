@@ -7,6 +7,7 @@ export default function RootLayout() {
         <SafeAreaProvider>
             <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="discover" />
+                <Stack.Screen name="details" />
             </Stack>
             <StatusBar style="light" />
         </SafeAreaProvider>

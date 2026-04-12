@@ -24,6 +24,7 @@ SwipeDeck gives you a gesture-driven card stack where users can swipe in any of 
 - Built-in undo with animated card restore — no extra state needed on your side
 - Internal history stack managed entirely by the library
 - Feed new cards at any time via `appendData`
+- Clickable top cards with `onCardPress` callback — swiping and tapping don't interfere
 - `onRemainingChange` fires automatically as the card count changes, making infinite scroll trivial to implement
 - Customizable swipe overlays with color, directional icons, and opacity controls per direction
 - Fully generic — `<SwipeDeck>` renders whatever component you give it, with your own props passed through directly
@@ -33,9 +34,19 @@ SwipeDeck gives you a gesture-driven card stack where users can swipe in any of 
 
 ## Installation
 
-> This library is not yet published to npm. Copy the `lib/` directory into your project to use it.
+Install the package using your preferred package manager:
 
-You must have the following peer dependencies installed and linked:
+```sh
+npm install anyswipe-swipedeck
+```
+
+Or with yarn:
+
+```sh
+yarn add anyswipe-swipedeck
+```
+
+You must also have the following peer dependencies installed and linked:
 
 ```sh
 npm install react-native-gesture-handler react-native-reanimated react-native-worklets
@@ -59,7 +70,7 @@ On Android, make sure `<GestureHandlerRootView>` wraps your app root if your nav
 ## Quick Start
 
 ```tsx
-import { SwipeDeck, useSwipeDeck, createSwipeableData } from "@/lib";
+import { SwipeDeck, useSwipeDeck, createSwipeableData } from "anyswipe-swipedeck";
 import { useRef } from "react";
 import { Button, Image } from "react-native";
 
@@ -97,6 +108,7 @@ export default function Feed() {
         onSwipeRight={(item) => console.log("liked", item)}
         onSwipeUp={(item) => console.log("plan to watch", item)}
         onSwipeDown={(item) => console.log("watching", item)}
+        onCardPress={(item) => console.log("tapped card", item)}
         onRemainingChange={handleRemainingChange}
       />
       <Button title="Undo" onPress={undo} />
@@ -141,6 +153,7 @@ const {
   onSwipeRight={(item) => {}}
   onSwipeUp={(item) => {}}
   onSwipeDown={(item) => {}}
+  onCardPress={(item) => {}}
   onRemainingChange={(count) => {}}
   overlayConfig={{
     left: { color: "#FF3B30", icon: <MyIcon />, maxOpacity: 0.9 },
@@ -152,17 +165,19 @@ const {
 
 #### Props
 
-| Prop                | Type                      | Required | Description                                                                                                   |
-| ------------------- | ------------------------- | -------- | ------------------------------------------------------------------------------------------------------------- |
-| `ref`               | `SwipeDeckRef<T>`         | Yes      | Ref from `useSwipeDeck`. Required for programmatic control.                                                   |
-| `ItemComponent`     | `React.ComponentType<T>`  | Yes      | Your card component. Receives your domain data directly as props.                                             |
-| `onSwipeLeft`       | `(item: T) => void`       | No       | Called when a card is swiped left.                                                                            |
-| `onSwipeRight`      | `(item: T) => void`       | No       | Called when a card is swiped right.                                                                           |
-| `onSwipeUp`         | `(item: T) => void`       | No       | Called when a card is swiped up.                                                                              |
-| `onSwipeDown`       | `(item: T) => void`       | No       | Called when a card is swiped down.                                                                            |
-| `onRemainingChange` | `(count: number) => void` | No       | Called whenever the remaining card count changes. Fires with `0` on first mount — use as the initial load trigger. |
-| `overlayConfig`     | `SwipeOverlayConfig`      | No       | Configures visual overlays (colors, icons, opacities) that appear during swipes in each direction.            |
-| `debug`             | `boolean`                 | No       | Enables verbose console logging of internal state transitions. Defaults to `false`.                           |
+| Prop                     | Type                      | Required | Description                                                                                                        |
+| ------------------------ | ------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
+| `ref`                    | `SwipeDeckRef<T>`         | Yes      | Ref from `useSwipeDeck`. Required for programmatic control.                                                        |
+| `ItemComponent`          | `React.ComponentType<T>`  | Yes      | Your card component. Receives your domain data directly as props.                                                  |
+| `onSwipeLeft`            | `(item: T) => void`       | No       | Called when a card is swiped left.                                                                                 |
+| `onSwipeRight`           | `(item: T) => void`       | No       | Called when a card is swiped right.                                                                                |
+| `onSwipeUp`              | `(item: T) => void`       | No       | Called when a card is swiped up.                                                                                   |
+| `onSwipeDown`            | `(item: T) => void`       | No       | Called when a card is swiped down.                                                                                 |
+| `onCardPress`            | `(item: T) => void`       | No       | Called when the top card is tapped. Swipes do not trigger taps.                                                    |
+| `onRemainingChange`      | `(count: number) => void` | No       | Called whenever the remaining card count changes. Fires with `0` on first mount — use as the initial load trigger. |
+| `overlayConfig`          | `SwipeOverlayConfig`      | No       | Configures visual overlays (colors, icons, opacities) that appear during swipes in each direction.                 |
+| `allowBackgroundTouches` | `boolean`                 | No       | Allows touch events to pass through to cards stacked behind the top card. Defaults to `false`.                     |
+| `debug`                  | `boolean`                 | No       | Enables verbose console logging of internal state transitions. Defaults to `false`.                                |
 
 ---
 
