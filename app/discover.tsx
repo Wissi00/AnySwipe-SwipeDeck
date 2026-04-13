@@ -1,5 +1,5 @@
 import { MediaCard } from "@/components/MediaCard";
-import { createSwipeableData, SwipeDeck, useSwipeDeck } from "@/lib";
+import { createSwipeableData, SwipeDeck, useSwipeDeck } from "@/lib/index";
 import { styles } from "@/styles/Discover.styles";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
