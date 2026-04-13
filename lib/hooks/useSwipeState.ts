@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useReducer } from "react";
+import { useEffect, useRef, useState } from "react";
 import { runOnJS, useAnimatedReaction, useSharedValue } from "react-native-reanimated";
 import type { SwipeableStatusEntry } from "../SwipeDeckContext";
 import { SwipeableData, SwipeDirection } from "../types";
@@ -32,25 +32,25 @@ export const useSwipeState = <T extends object>(callbacks: SwipeStateCallbacks<T
   // History needs direction to know from where it returns
   const swipedStackRef = useRef<(SwipeableData<T> & { direction?: SwipeDirection })[]>([]);
 
-  const [, forceRender] = useReducer((x) => x + 1, 0);
+  // ── Mirror SharedValue into React state to avoid reading .value during render ──
+  const [statusesSnapshot, setStatusesSnapshot] = useState<SwipeableStatusEntry[]>([]);
 
-  // Trigger a React re-render when the SharedValue (source of truth) changes
   useAnimatedReaction(
     () => swipeableStatuses.value,
-    () => {
-      runOnJS(forceRender)();
+    (current) => {
+      runOnJS(setStatusesSnapshot)(current);
     },
   );
 
   // ── Remaining count ──
-  const remainingCount = swipeableStatuses.value.filter((s) => s.status === "idle").length;
+  const remainingCount = statusesSnapshot.filter((s) => s.status === "idle").length;
 
   useEffect(() => {
     onRemainingChange?.(remainingCount);
   }, [remainingCount]);
 
   // ── Debug log ──
-  const deckLog = swipeableStatuses.value
+  const deckLog = statusesSnapshot
     .map((s) => {
       const statusLabel = s.status === "animating-out" ? "OUT" : s.status === "animating-in" ? "IN" : "idle";
       return `#${s.id}(${statusLabel})`;
@@ -60,9 +60,8 @@ export const useSwipeState = <T extends object>(callbacks: SwipeStateCallbacks<T
 
   // ── Handle done-animating: remove card, push to history ──
   useEffect(() => {
-    const statuses = swipeableStatuses.value;
-    if (statuses.length > 0 && statuses[0].status === "done-animating") {
-      const topStatus = statuses[0];
+    if (statusesSnapshot.length > 0 && statusesSnapshot[0].status === "done-animating") {
+      const topStatus = statusesSnapshot[0];
       const dataItem = swipeablesArrayData.find((d) => d.id === topStatus.id);
 
       if (dataItem) {
@@ -71,16 +70,16 @@ export const useSwipeState = <T extends object>(callbacks: SwipeStateCallbacks<T
           data: dataItem.data,
           direction: topStatus.direction,
         });
-        log(`GATEKEEPER: Card ${topStatus.id} released to history. History array : [${swipedStackRef.current.map((s) => `#${s.id}`).join(" ")}]`);
+        log(`🥞 History stack : [${swipedStackRef.current.map((s) => `#${s.id}`).join(" ")}]`);
 
         // Remove from React state
         setSwipeablesArrayData((prev) => prev.filter((d) => d.id !== topStatus.id));
       }
 
-      // Remove from SharedValue
-      swipeableStatuses.value = statuses.filter((s) => s.id !== topStatus.id);
+      // Remove from SharedValue by reading its *latest* physical value
+      swipeableStatuses.value = swipeableStatuses.value.filter((s) => s.id !== topStatus.id);
     }
-  }); // Runs on every React render triggered by forceRender
+  }, [statusesSnapshot]);
 
   // ── appendData: add items to both SharedValue and React state ──
   const appendData = (items: SwipeableData<T>[]) => {
@@ -164,9 +163,9 @@ export const useSwipeState = <T extends object>(callbacks: SwipeStateCallbacks<T
     }
   };
 
-  // ── Filter for rendering from SharedValue ──
+  // ── Filter for rendering from snapshot ──
   let idleRenderCount = 0;
-  const swipeablesToRender = swipeableStatuses.value
+  const swipeablesToRender = statusesSnapshot
     .filter((s) => {
       if (s.status === "animating-out" || s.status === "animating-in") return true;
       if (s.status === "idle" && idleRenderCount < 3) {

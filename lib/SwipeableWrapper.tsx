@@ -55,10 +55,13 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
     frontCardTranslateY,
 }) => {
     const { swipeableStatuses } = useSwipeDeckContext();
-    const [isTop, setIsTop] = useState<boolean>(() => {
+    const [isTop, setIsTop] = useState<boolean>(false);
+
+    // Set the correct initial value after mount — avoids reading .value during render
+    useEffect(() => {
         const firstIdle = swipeableStatuses.value.find(s => s.status === 'idle');
-        return firstIdle?.id === id;
-    });
+        setIsTop(firstIdle?.id === id);
+    }, []);
 
     useAnimatedReaction(
         () => {
