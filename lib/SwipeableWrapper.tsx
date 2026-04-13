@@ -153,7 +153,7 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
                 translateX.value = withTiming(horizontalExit, { duration: dur, easing: Easing.in(Easing.quad) }, (finished) => {
                     if (finished) {
                         swipeableStatuses.value = swipeableStatuses.value.map(s =>
-                            s.id === id ? { id: s.id, status: 'done-animating' as const } : s
+                            s.id === id ? { ...s, status: 'done-animating' as const } : s
                         );
                         if (frontCardTranslateX) frontCardTranslateX.value = 0;
                         if (frontCardTranslateY) frontCardTranslateY.value = 0;
@@ -170,7 +170,7 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
                 translateX.value = withTiming(-horizontalExit, { duration: dur, easing: Easing.in(Easing.quad) }, (finished) => {
                     if (finished) {
                         swipeableStatuses.value = swipeableStatuses.value.map(s =>
-                            s.id === id ? { id: s.id, status: 'done-animating' as const } : s
+                            s.id === id ? { ...s, status: 'done-animating' as const } : s
                         );
                         if (frontCardTranslateX) frontCardTranslateX.value = 0;
                         if (frontCardTranslateY) frontCardTranslateY.value = 0;
@@ -187,7 +187,7 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
                 translateY.value = withTiming(-verticalExit, { duration: dur, easing: Easing.in(Easing.quad) }, (finished) => {
                     if (finished) {
                         swipeableStatuses.value = swipeableStatuses.value.map(s =>
-                            s.id === id ? { id: s.id, status: 'done-animating' as const } : s
+                            s.id === id ? { ...s, status: 'done-animating' as const } : s
                         );
                         if (frontCardTranslateX) frontCardTranslateX.value = 0;
                         if (frontCardTranslateY) frontCardTranslateY.value = 0;
@@ -204,7 +204,7 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
                 translateY.value = withTiming(verticalExit, { duration: dur, easing: Easing.in(Easing.quad) }, (finished) => {
                     if (finished) {
                         swipeableStatuses.value = swipeableStatuses.value.map(s =>
-                            s.id === id ? { id: s.id, status: 'done-animating' as const } : s
+                            s.id === id ? { ...s, status: 'done-animating' as const } : s
                         );
                         if (frontCardTranslateX) frontCardTranslateX.value = 0;
                         if (frontCardTranslateY) frontCardTranslateY.value = 0;
@@ -280,7 +280,7 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
                 translateX.value = withTiming(targetX, { duration, easing: Easing.in(Easing.quad) }, (finished) => {
                     if (finished) {
                         swipeableStatuses.value = swipeableStatuses.value.map(s =>
-                            s.id === id ? { id: s.id, status: 'done-animating' as const } : s
+                            s.id === id ? { ...s, status: 'done-animating' as const } : s
                         );
                         if (frontCardTranslateX) frontCardTranslateX.value = 0;
                         if (frontCardTranslateY) frontCardTranslateY.value = 0;
@@ -296,7 +296,7 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
                 translateY.value = withTiming(targetY, { duration, easing: Easing.in(Easing.quad) }, (finished) => {
                     if (finished) {
                         swipeableStatuses.value = swipeableStatuses.value.map(s =>
-                            s.id === id ? { id: s.id, status: 'done-animating' as const } : s
+                            s.id === id ? { ...s, status: 'done-animating' as const } : s
                         );
                         if (frontCardTranslateX) frontCardTranslateX.value = 0;
                         if (frontCardTranslateY) frontCardTranslateY.value = 0;
@@ -307,12 +307,15 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
             }
         } else if (status === 'animating-in') {
 
+            if (frontCardTranslateX) frontCardTranslateX.value = translateX.value;
+            if (frontCardTranslateY) frontCardTranslateY.value = translateY.value;
+
             // Animate back to center
             translateX.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
             translateY.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) }, (finished) => {
                 if (finished) {
                     swipeableStatuses.value = swipeableStatuses.value.map(s =>
-                        s.id === id ? { id: s.id, status: 'idle' as const } : s
+                        s.id === id ? { ...s, status: 'idle' as const } : s
                     );
                 }
             });
