@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useReducer } from "react";
+import { runOnJS, useAnimatedReaction, useSharedValue } from "react-native-reanimated";
+import type { SwipeableStatusEntry } from "../SwipeDeckContext";
 import { SwipeableData, SwipeDirection } from "../types";
 
 interface SwipeStateCallbacks<T> {
@@ -21,93 +23,140 @@ export const useSwipeState = <T extends object>(callbacks: SwipeStateCallbacks<T
     if (debug) console.warn(...args);
   };
 
-  const [swipeablesArray, setSwipeablesArray] = useState<SwipeableData<T>[]>([]);
-  const swipedStackRef = useRef<SwipeableData<T>[]>([]);
+  // ── Source of truth: SharedValue for statuses (UI-thread instant) ──
+  const swipeableStatuses = useSharedValue<SwipeableStatusEntry[]>([]);
 
-  const remainingCount = swipeablesArray.length;
+  // ── React state: strictly holds IDs and Data ──
+  const [swipeablesArrayData, setSwipeablesArrayData] = useState<{id: number, data: T}[]>([]);
 
-  // Load more trigger, always fires on first mount to trigger fetching of initial batch
+  // History needs direction to know from where it returns
+  const swipedStackRef = useRef<(SwipeableData<T> & { direction?: SwipeDirection })[]>([]);
+
+  const [, forceRender] = useReducer((x) => x + 1, 0);
+
+  // Trigger a React re-render when the SharedValue (source of truth) changes
+  useAnimatedReaction(
+    () => swipeableStatuses.value,
+    () => {
+      runOnJS(forceRender)();
+    },
+  );
+
+  // ── Remaining count ──
+  const remainingCount = swipeableStatuses.value.filter((s) => s.status === "idle").length;
+
   useEffect(() => {
     onRemainingChange?.(remainingCount);
   }, [remainingCount]);
 
-  const deckLog = swipeablesArray
+  // ── Debug log ──
+  const deckLog = swipeableStatuses.value
     .map((s) => {
       const statusLabel = s.status === "animating-out" ? "OUT" : s.status === "animating-in" ? "IN" : "idle";
       return `#${s.id}(${statusLabel})`;
     })
     .join(" ");
-  log("🃏 Deck array changed:", `[ ${deckLog} ]`);
+  log("🃏 Deck array:", `[ ${deckLog} ]`);
 
-  const appendData = (items: SwipeableData<T>[]) => {
-    setSwipeablesArray((prev) => [...prev, ...items]);
-  };
+  // ── Handle done-animating: remove card, push to history ──
+  useEffect(() => {
+    const statuses = swipeableStatuses.value;
+    if (statuses.length > 0 && statuses[0].status === "done-animating") {
+      const topStatus = statuses[0];
+      const dataItem = swipeablesArrayData.find((d) => d.id === topStatus.id);
 
-  const setSwipeableStatusToAnimatingOut = (id: number, direction: SwipeDirection) => {
-    setSwipeablesArray((prev) => prev.map((s) => (s.id === id ? { ...s, status: "animating-out", direction } : s)));
-  };
+      if (dataItem) {
+        swipedStackRef.current.push({
+          id: topStatus.id,
+          data: dataItem.data,
+          direction: topStatus.direction,
+        });
+        log(`GATEKEEPER: Card ${topStatus.id} released to history. History array : [${swipedStackRef.current.map((s) => `#${s.id}`).join(" ")}]`);
 
-  const setLastAnimatingOutStatusToAnimatingIn = () => {
-    setSwipeablesArray((prev) => {
-      const lastAnimatingOut = prev.findLast((s) => s.status === "animating-out");
-      if (lastAnimatingOut) {
-        return prev.map((s) => (s.id === lastAnimatingOut.id ? { ...s, status: "animating-in" } : s));
-      } else {
-        warn(`ARRAY_UPDATE: No animating-out card found`);
-        return prev;
+        // Remove from React state
+        setSwipeablesArrayData((prev) => prev.filter((d) => d.id !== topStatus.id));
       }
-    });
+
+      // Remove from SharedValue
+      swipeableStatuses.value = statuses.filter((s) => s.id !== topStatus.id);
+    }
+  }); // Runs on every React render triggered by forceRender
+
+  // ── appendData: add items to both SharedValue and React state ──
+  const appendData = (items: SwipeableData<T>[]) => {
+    setSwipeablesArrayData((prev) => [
+      ...prev,
+      ...items.map((item) => ({ id: item.id, data: item.data })),
+    ]);
+    swipeableStatuses.value = [
+      ...swipeableStatuses.value,
+      ...items.map((item) => ({ id: item.id, status: "idle" as const })),
+    ];
   };
 
-  const setStatusOutAndRelaySwipe = (swipeable: SwipeableData<T>, direction: SwipeDirection) => {
-    const hasAnimatingIn = swipeablesArray.some((s) => s.status === "animating-in"); // If a card is currently animating in, we consider the deck "locked" and ignore swipe attempts until the animation is done. 
-    if (swipeable.id !== topSwipeableId || hasAnimatingIn) {
-      warn(`SWIPE ATTEMPT LOCKED}`);
+  // ── relaySwipe: lookup data and dispatch the event ──
+  const relaySwipe = (swipeableId: number, direction: SwipeDirection) => {
+    const dataItem = swipeablesArrayData.find((d) => d.id === swipeableId);
+    if (dataItem) {
+      switch (direction) {
+        case "left":
+          onSwipeLeft?.(dataItem.data);
+          break;
+        case "right":
+          onSwipeRight?.(dataItem.data);
+          break;
+        case "up":
+          onSwipeUp?.(dataItem.data);
+          break;
+        case "down":
+          onSwipeDown?.(dataItem.data);
+          break;
+      }
+    }
+  };
+
+  // ── setStatusOutAndRelaySwipe: writes to SharedValue + calls direction callback ──
+  const setStatusOutAndRelaySwipe = (swipeableId: number, direction: SwipeDirection) => {
+    // Read SharedValue for instant, accurate status checks
+    const entry = swipeableStatuses.value.find((s) => s.id === swipeableId);
+    if (!entry || entry.status !== "idle") {
+      warn(`SWIPE REJECTED: Card ${swipeableId} is not idle (current status: ${entry?.status})`);
       return;
     }
-    switch (direction) {
-      case "left":
-        onSwipeLeft?.(swipeable.data);
-        break;
-      case "right":
-        onSwipeRight?.(swipeable.data);
-        break;
-      case "up":
-        onSwipeUp?.(swipeable.data);
-        break;
-      case "down":
-        onSwipeDown?.(swipeable.data);
-        break;
+
+    const hasAnimatingIn = swipeableStatuses.value.some((s) => s.status === "animating-in");
+    if (hasAnimatingIn) {
+      warn(`SWIPE ATTEMPT LOCKED`);
+      return;
     }
-    setSwipeableStatusToAnimatingOut(swipeable.id, direction);
+
+    // Write to SharedValue (source of truth)
+    swipeableStatuses.value = swipeableStatuses.value.map((s) =>
+      s.id === swipeableId ? { ...s, status: "animating-out" as const, direction } : s,
+    );
+
+    relaySwipe(swipeableId, direction);
   };
 
-  // When a card finishes animating out, we consider it "removed" and push it to the swiped history stack.
-  useEffect(() => {
-    if (swipeablesArray.length > 0 && swipeablesArray[0].status === "done-animating") {
-      const topCard = swipeablesArray[0];
-      swipedStackRef.current.push(topCard);
-      log(`GATEKEEPER: Card ${topCard.id} released to history. History array : [${swipedStackRef.current.map((s) => `#${s.id}`).join(" ")}]`);
-      setSwipeablesArray((prev) => prev.slice(1));
-    }
-  }, [swipeablesArray]);
-
-  const setSwipeableStatusToDoneAnimating = (id: number) => {
-    setSwipeablesArray((prev) => prev.map((s) => (s.id === id ? { ...s, status: "done-animating" } : s)));
-  };
-
-  const setSwipeableStatusToIdle = (id: number) => {
-    setSwipeablesArray((prev) => prev.map((s) => (s.id === id ? { ...s, status: "idle" } : s)));
-    log(`SET_IDLE: Card ${id} reset to idle`);
-  };
-
+  // ── undoFromHistory: writes to SharedValue ──
   const undoFromHistory = () => {
-    if (swipeablesArray.some((s) => s.status === "animating-out")) {
-      setLastAnimatingOutStatusToAnimatingIn();
+    const hasAnimatingOut = swipeableStatuses.value.some((s) => s.status === "animating-out");
+    if (hasAnimatingOut) {
+      // Set last animating-out back to animating-in
+      const lastAnimOut = swipeableStatuses.value.findLast((s) => s.status === "animating-out");
+      if (lastAnimOut) {
+        swipeableStatuses.value = swipeableStatuses.value.map((s) =>
+          s.id === lastAnimOut.id ? { ...s, status: "animating-in" as const } : s,
+        );
+      } else {
+        warn(`UNDO: No animating-out card found`);
+      }
     } else {
       const item = swipedStackRef.current.pop();
       if (item) {
-        setSwipeablesArray((prev) => [{ ...item, status: "animating-in" }, ...prev]);
+        const entry: SwipeableStatusEntry = { id: item.id, status: "animating-in", direction: item.direction };
+        setSwipeablesArrayData((prev) => [{ id: item.id, data: item.data }, ...prev]);
+        swipeableStatuses.value = [entry, ...swipeableStatuses.value];
         log(`↩️: Item restored from history`);
       } else {
         warn(`↩️: No item in history`);
@@ -115,26 +164,34 @@ export const useSwipeState = <T extends object>(callbacks: SwipeStateCallbacks<T
     }
   };
 
+  // ── Filter for rendering from SharedValue ──
   let idleRenderCount = 0;
-  const swipeablesToRender = swipeablesArray.filter((s) => {
-    if (s.status === "animating-out" || s.status === "animating-in") return true;
-    if (s.status === "idle" && idleRenderCount < 3) {
-      idleRenderCount++;
-      return true;
-    }
-    return false;
-  });
-
-  const topSwipeableId = swipeablesArray.find((s) => s.status === "idle")?.id;
+  const swipeablesToRender = swipeableStatuses.value
+    .filter((s) => {
+      if (s.status === "animating-out" || s.status === "animating-in") return true;
+      if (s.status === "idle" && idleRenderCount < 3) {
+        idleRenderCount++;
+        return true;
+      }
+      return false;
+    })
+    .map((s) => {
+      const dataItem = swipeablesArrayData.find((d) => d.id === s.id);
+      return {
+        id: s.id,
+        status: s.status,
+        direction: s.direction,
+        data: dataItem?.data as T, // safe because both states are kept in sync
+      };
+    });
 
   return {
-    swipeablesArray,
+    swipeablesArrayData,
     swipeablesToRender,
-    topSwipeableId,
+    swipeableStatuses,
     appendData,
+    relaySwipe,
     setStatusOutAndRelaySwipe,
-    setSwipeableStatusToDoneAnimating,
-    setSwipeableStatusToIdle,
     undoFromHistory,
   };
 };

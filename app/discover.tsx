@@ -16,16 +16,16 @@ export default function Discover() {
   const router = useRouter();
   const { deckRef, swipeLeft, swipeRight, swipeUp, swipeDown, undo, appendData } = useSwipeDeck<MediaCardData>();
 
-  const nextHueIndexRef = useRef(0);
+  const indexRef = useRef(0);
 
   const loadBatch = () => {
     console.log("🛜 loading batch");
 
-    const startIndex = nextHueIndexRef.current;
+    const startIndex = indexRef.current;
     const batch = Array.from({ length: BATCH_SIZE }).map((_, index) => {
-      return createSwipeableData({ id: String(startIndex + index + 1) });
+      return createSwipeableData({ id: String(startIndex + index) });
     });
-    nextHueIndexRef.current += BATCH_SIZE;
+    indexRef.current += BATCH_SIZE;
     appendData(batch);
   };
 
@@ -34,19 +34,19 @@ export default function Discover() {
   };
 
   const handleSwipeLeft = (item: MediaCardData) => {
-   //console.log(`Action: Card swiped LEFT`, item);
+   console.log(`Action: Card swiped LEFT`, item);
   };
 
   const handleSwipeRight = (item: MediaCardData) => {
-    //console.log(`Action: Card swiped RIGHT`, item);
+    console.log(`Action: Card swiped RIGHT`, item);
   };
 
   const handleSwipeUp = (item: MediaCardData) => {
-    //console.log(`Action: Card swiped UP`, item);
+    console.log(`Action: Card swiped UP`, item);
   };
 
   const handleSwipeDown = (item: MediaCardData) => {
-    //console.log(`Action: Card swiped DOWN`, item);
+    console.log(`Action: Card swiped DOWN`, item);
   };
 
   const handleRemainingChange = (count: number) => {

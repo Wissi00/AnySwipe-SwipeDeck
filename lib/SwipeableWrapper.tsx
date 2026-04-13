@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Dimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -6,11 +6,13 @@ import Animated, {
     Extrapolation,
     interpolate,
     runOnJS,
+    useAnimatedReaction,
     useAnimatedStyle,
     useSharedValue,
     withTiming,
     type SharedValue,
 } from 'react-native-reanimated';
+import { useSwipeDeckContext } from './SwipeDeckContext';
 import { styles } from './styles/SwipeableWrapper.styles';
 import { SwipeDirection, SwipeOverlayConfig, SwipeStatus } from './types';
 
@@ -20,15 +22,13 @@ export interface SwipeableWrapperProps {
     children: React.ReactNode;
     status?: SwipeStatus;
     direction?: SwipeDirection;
-    isTopSwipeable: boolean;
+    id: number;
     overlayConfig?: SwipeOverlayConfig;
     onSwipeLeft?: () => void;
     onSwipeRight?: () => void;
     onSwipeUp?: () => void;
     onSwipeDown?: () => void;
     onCardPress?: () => void;
-    onAnimationOutComplete?: () => void;
-    onAnimationInComplete?: () => void;
     frontCardTranslateX?: SharedValue<number>;
     frontCardTranslateY?: SharedValue<number>;
 }
@@ -44,18 +44,34 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
     children,
     status = 'idle',
     direction,
-    isTopSwipeable,
+    id,
     overlayConfig,
     onSwipeLeft,
     onSwipeRight,
     onSwipeUp,
     onSwipeDown,
     onCardPress,
-    onAnimationOutComplete,
-    onAnimationInComplete,
     frontCardTranslateX,
     frontCardTranslateY,
 }) => {
+    const { swipeableStatuses } = useSwipeDeckContext();
+    const [isTop, setIsTop] = useState<boolean>(() => {
+        const firstIdle = swipeableStatuses.value.find(s => s.status === 'idle');
+        return firstIdle?.id === id;
+    });
+
+    useAnimatedReaction(
+        () => {
+            const firstIdle = swipeableStatuses.value.find(s => s.status === 'idle');
+            return firstIdle?.id === id;
+        },
+        (current, previous) => {
+            if (current !== previous) {
+                runOnJS(setIsTop)(current);
+            }
+        }
+    );
+
     // Initialize positions based on status to prevent the (0,0) flash on mount
     const getInitialX = () => {
         if (status !== 'animating-in') return 0;
@@ -89,14 +105,16 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
     const dismissedByGesture = useSharedValue(false);
 
     const panGesture = Gesture.Pan()
-        .enabled(isTopSwipeable)
+        .enabled(isTop)
         .onUpdate((event) => {
+            if (dismissedByGesture.value) return;
             translateX.value = event.translationX;
             translateY.value = event.translationY;
             if (frontCardTranslateX) frontCardTranslateX.value = event.translationX;
             if (frontCardTranslateY) frontCardTranslateY.value = event.translationY;
         })
         .onEnd((event) => {
+            if (dismissedByGesture.value) return;
             velocityX.value = event.velocityX;
             velocityY.value = event.velocityY;
 
@@ -124,34 +142,70 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
             };
 
             if (isHorizontalDominant && shouldSwipeRight) {
+                swipeableStatuses.value = swipeableStatuses.value.map(s =>
+                    s.id === id ? { id: s.id, status: 'animating-out' as const, direction: 'right' as const } : s
+                );
                 dismissedByGesture.value = true;
                 const dur = calcDur(horizontalExit, translateX.value, event.velocityX);
                 translateX.value = withTiming(horizontalExit, { duration: dur, easing: Easing.in(Easing.quad) }, (finished) => {
-                    if (finished && onAnimationOutComplete) runOnJS(onAnimationOutComplete)();
+                    if (finished) {
+                        swipeableStatuses.value = swipeableStatuses.value.map(s =>
+                            s.id === id ? { id: s.id, status: 'done-animating' as const } : s
+                        );
+                        if (frontCardTranslateX) frontCardTranslateX.value = 0;
+                        if (frontCardTranslateY) frontCardTranslateY.value = 0;
+                    }
                 });
                 if (frontCardTranslateX) frontCardTranslateX.value = withTiming(horizontalExit, { duration: dur, easing: Easing.in(Easing.quad) });
                 if (onSwipeRight) runOnJS(onSwipeRight)();
             } else if (isHorizontalDominant && shouldSwipeLeft) {
+                swipeableStatuses.value = swipeableStatuses.value.map(s =>
+                    s.id === id ? { id: s.id, status: 'animating-out' as const, direction: 'left' as const } : s
+                );
                 dismissedByGesture.value = true;
                 const dur = calcDur(-horizontalExit, translateX.value, event.velocityX);
                 translateX.value = withTiming(-horizontalExit, { duration: dur, easing: Easing.in(Easing.quad) }, (finished) => {
-                    if (finished && onAnimationOutComplete) runOnJS(onAnimationOutComplete)();
+                    if (finished) {
+                        swipeableStatuses.value = swipeableStatuses.value.map(s =>
+                            s.id === id ? { id: s.id, status: 'done-animating' as const } : s
+                        );
+                        if (frontCardTranslateX) frontCardTranslateX.value = 0;
+                        if (frontCardTranslateY) frontCardTranslateY.value = 0;
+                    }
                 });
                 if (frontCardTranslateX) frontCardTranslateX.value = withTiming(-horizontalExit, { duration: dur, easing: Easing.in(Easing.quad) });
                 if (onSwipeLeft) runOnJS(onSwipeLeft)();
             } else if (!isHorizontalDominant && shouldSwipeUp) {
+                swipeableStatuses.value = swipeableStatuses.value.map(s =>
+                    s.id === id ? { id: s.id, status: 'animating-out' as const, direction: 'up' as const } : s
+                );
                 dismissedByGesture.value = true;
                 const dur = calcDur(-verticalExit, translateY.value, event.velocityY);
                 translateY.value = withTiming(-verticalExit, { duration: dur, easing: Easing.in(Easing.quad) }, (finished) => {
-                    if (finished && onAnimationOutComplete) runOnJS(onAnimationOutComplete)();
+                    if (finished) {
+                        swipeableStatuses.value = swipeableStatuses.value.map(s =>
+                            s.id === id ? { id: s.id, status: 'done-animating' as const } : s
+                        );
+                        if (frontCardTranslateX) frontCardTranslateX.value = 0;
+                        if (frontCardTranslateY) frontCardTranslateY.value = 0;
+                    }
                 });
                 if (frontCardTranslateY) frontCardTranslateY.value = withTiming(-verticalExit, { duration: dur, easing: Easing.in(Easing.quad) });
                 if (onSwipeUp) runOnJS(onSwipeUp)();
             } else if (!isHorizontalDominant && shouldSwipeDown) {
+                swipeableStatuses.value = swipeableStatuses.value.map(s =>
+                    s.id === id ? { id: s.id, status: 'animating-out' as const, direction: 'down' as const } : s
+                );
                 dismissedByGesture.value = true;
                 const dur = calcDur(verticalExit, translateY.value, event.velocityY);
                 translateY.value = withTiming(verticalExit, { duration: dur, easing: Easing.in(Easing.quad) }, (finished) => {
-                    if (finished && onAnimationOutComplete) runOnJS(onAnimationOutComplete)();
+                    if (finished) {
+                        swipeableStatuses.value = swipeableStatuses.value.map(s =>
+                            s.id === id ? { id: s.id, status: 'done-animating' as const } : s
+                        );
+                        if (frontCardTranslateX) frontCardTranslateX.value = 0;
+                        if (frontCardTranslateY) frontCardTranslateY.value = 0;
+                    }
                 });
                 if (frontCardTranslateY) frontCardTranslateY.value = withTiming(verticalExit, { duration: dur, easing: Easing.in(Easing.quad) });
                 if (onSwipeDown) runOnJS(onSwipeDown)();
@@ -164,7 +218,7 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
         });
 
     const tapGesture = Gesture.Tap()
-        .enabled(isTopSwipeable)
+        .enabled(isTop)
         .maxDistance(10)
         .maxDuration(250)
         .onEnd(() => {
@@ -195,6 +249,10 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
         const verticalExit = (screenHeight / 2) + (currentHeight / 2) + 100;
 
         if (status === 'animating-out') {
+            if (dismissedByGesture.value) {
+                dismissedByGesture.value = false;
+                return;
+            }
 
             let targetX: number;
             let targetY: number;
@@ -217,8 +275,12 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
 
                 translateY.value = withTiming(targetY, { duration, easing: Easing.in(Easing.quad) });
                 translateX.value = withTiming(targetX, { duration, easing: Easing.in(Easing.quad) }, (finished) => {
-                    if (finished && onAnimationOutComplete) {
-                        runOnJS(onAnimationOutComplete)();
+                    if (finished) {
+                        swipeableStatuses.value = swipeableStatuses.value.map(s =>
+                            s.id === id ? { id: s.id, status: 'done-animating' as const } : s
+                        );
+                        if (frontCardTranslateX) frontCardTranslateX.value = 0;
+                        if (frontCardTranslateY) frontCardTranslateY.value = 0;
                     }
                 });
                 if (frontCardTranslateX) frontCardTranslateX.value = withTiming(targetX, { duration, easing: Easing.in(Easing.quad) });
@@ -229,8 +291,12 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
 
                 translateX.value = withTiming(targetX, { duration, easing: Easing.in(Easing.quad) });
                 translateY.value = withTiming(targetY, { duration, easing: Easing.in(Easing.quad) }, (finished) => {
-                    if (finished && onAnimationOutComplete) {
-                        runOnJS(onAnimationOutComplete)();
+                    if (finished) {
+                        swipeableStatuses.value = swipeableStatuses.value.map(s =>
+                            s.id === id ? { id: s.id, status: 'done-animating' as const } : s
+                        );
+                        if (frontCardTranslateX) frontCardTranslateX.value = 0;
+                        if (frontCardTranslateY) frontCardTranslateY.value = 0;
                     }
                 });
                 if (frontCardTranslateX) frontCardTranslateX.value = withTiming(targetX, { duration, easing: Easing.in(Easing.quad) });
@@ -241,8 +307,10 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
             // Animate back to center
             translateX.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
             translateY.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) }, (finished) => {
-                if (finished && onAnimationInComplete) {
-                    runOnJS(onAnimationInComplete)();
+                if (finished) {
+                    swipeableStatuses.value = swipeableStatuses.value.map(s =>
+                        s.id === id ? { id: s.id, status: 'idle' as const } : s
+                    );
                 }
             });
             if (frontCardTranslateX) frontCardTranslateX.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
@@ -251,7 +319,7 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
             translateX.value = withTiming(0, { duration: 300 });
             translateY.value = withTiming(0, { duration: 300 });
         }
-    }, [status, direction, onAnimationOutComplete, onAnimationInComplete]);
+    }, [status, direction]);
 
     const animatedStyle = useAnimatedStyle(() => {
         const rotationZFromX = interpolate(translateX.value, [-screenWidth, 0, screenWidth], [-15, 0, 15]);
@@ -345,7 +413,7 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
 
     return (
         <View
-            pointerEvents={isTopSwipeable ? 'auto' : 'none'}
+            pointerEvents={isTop ? 'auto' : 'none'}
             style={styles.container}>
             <GestureDetector gesture={gesture}>
                 <Animated.View

@@ -8,6 +8,7 @@ import Animated, {
   useSharedValue,
   type SharedValue,
 } from "react-native-reanimated";
+import { SwipeDeckContext, useSwipeDeckContext } from "./SwipeDeckContext";
 import { SwipeableWrapper } from "./SwipeableWrapper";
 import { useSwipeState } from "./hooks/useSwipeState";
 import { styles } from "./styles/SwipeDeck.styles";
@@ -17,14 +18,29 @@ const { width: screenWidth } = Dimensions.get("window");
 const SWIPE_THRESHOLD = screenWidth * 0.35;
 
 interface StackSlotProps {
-  stackOffset: number;
+  id: number;
   frontCardTranslateX: SharedValue<number>;
   frontCardTranslateY: SharedValue<number>;
   children: React.ReactNode;
 }
 
-const StackSlot = ({ stackOffset, frontCardTranslateX, frontCardTranslateY, children }: StackSlotProps) => {
+const StackSlot = ({ id, frontCardTranslateX, frontCardTranslateY, children }: StackSlotProps) => {
+  const { swipeableStatuses } = useSwipeDeckContext();
+
   const style = useAnimatedStyle(() => {
+    const statuses = swipeableStatuses.value;
+    let stackOffset = 0;
+    let idleCount = 0;
+    for (let i = 0; i < statuses.length; i++) {
+      if (statuses[i].status === "idle") {
+        if (statuses[i].id === id) {
+          stackOffset = idleCount;
+          break;
+        }
+        idleCount++;
+      }
+    }
+
     const currentScale = 1 - stackOffset * 0.05;
     const targetScale = 1 - Math.max(0, stackOffset - 1) * 0.05;
     const currentVertOffset = stackOffset * 16;
@@ -66,13 +82,12 @@ const SwipeDeckInner = <T extends object>(
   ref: React.ForwardedRef<SwipeDeckRef<T>>,
 ) => {
   const {
-    swipeablesArray,
+    swipeablesArrayData,
     swipeablesToRender,
-    topSwipeableId,
+    swipeableStatuses,
     appendData,
+    relaySwipe,
     setStatusOutAndRelaySwipe,
-    setSwipeableStatusToDoneAnimating,
-    setSwipeableStatusToIdle,
     undoFromHistory,
   } = useSwipeState<T>({ onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown, onRemainingChange, debug });
 
@@ -81,56 +96,50 @@ const SwipeDeckInner = <T extends object>(
 
   useImperativeHandle(ref, () => ({
     swipeLeft: () => {
-      const top = swipeablesArray.find((s) => s.status === "idle");
-      if (top) setStatusOutAndRelaySwipe(top, "left");
+      const top = swipeableStatuses.value.find((s) => s.status === "idle");
+      if (top) {
+         setStatusOutAndRelaySwipe(top.id, "left"); } else {
+         console.warn("No card available to swipe LEFT");
+      }
     },
     swipeRight: () => {
-      const top = swipeablesArray.find((s) => s.status === "idle");
-      if (top) setStatusOutAndRelaySwipe(top, "right");
+      const top = swipeableStatuses.value.find((s) => s.status === "idle");
+      if (top) setStatusOutAndRelaySwipe(top.id, "right");
     },
     swipeUp: () => {
-      const top = swipeablesArray.find((s) => s.status === "idle");
-      if (top) setStatusOutAndRelaySwipe(top, "up");
+      const top = swipeableStatuses.value.find((s) => s.status === "idle");
+      if (top) setStatusOutAndRelaySwipe(top.id, "up");
     },
     swipeDown: () => {
-      const top = swipeablesArray.find((s) => s.status === "idle");
-      if (top) setStatusOutAndRelaySwipe(top, "down");
+      const top = swipeableStatuses.value.find((s) => s.status === "idle");
+      if (top) setStatusOutAndRelaySwipe(top.id, "down");
     },
     undo: undoFromHistory,
     appendData: (items: SwipeableData<T>[]) => appendData(items),
   }));
-
-  let idleIndex = 0;
-
-  return (
+return (
+    <SwipeDeckContext.Provider value={{ swipeableStatuses }}>
     <GestureHandlerRootView style={styles.deckContainer}>
       {swipeablesToRender
         .map((swipeable) => {
-          const stackOffset = swipeable.status === "idle" ? idleIndex++ : 0;
           return (
             <StackSlot
               key={swipeable.id}
-              stackOffset={stackOffset}
+              id={swipeable.id}
               frontCardTranslateX={topCardTranslateX}
               frontCardTranslateY={topCardTranslateY}
             >
               <SwipeableWrapper
                 status={swipeable.status}
                 direction={swipeable.direction}
-                isTopSwipeable={swipeable.id === topSwipeableId}
+                id={swipeable.id}
                 frontCardTranslateX={topCardTranslateX}
                 frontCardTranslateY={topCardTranslateY}
-                onSwipeLeft={() => setStatusOutAndRelaySwipe(swipeable, "left")}
-                onSwipeRight={() => setStatusOutAndRelaySwipe(swipeable, "right")}
-                onSwipeUp={() => setStatusOutAndRelaySwipe(swipeable, "up")}
-                onSwipeDown={() => setStatusOutAndRelaySwipe(swipeable, "down")}
+                onSwipeLeft={() => relaySwipe(swipeable.id, "left")}
+                onSwipeRight={() => relaySwipe(swipeable.id, "right")}
+                onSwipeUp={() => relaySwipe(swipeable.id, "up")}
+                onSwipeDown={() => relaySwipe(swipeable.id, "down")}
                 onCardPress={() => onCardPress?.(swipeable.data)}
-                onAnimationOutComplete={() => {
-                  setSwipeableStatusToDoneAnimating(swipeable.id);
-                  topCardTranslateX.value = 0;
-                  topCardTranslateY.value = 0;
-                }}
-                onAnimationInComplete={() => { setSwipeableStatusToIdle(swipeable.id); }}
                 overlayConfig={overlayConfig}
               >
                 <ItemComponent {...swipeable.data} />
@@ -140,6 +149,7 @@ const SwipeDeckInner = <T extends object>(
         })
         .reverse()}
     </GestureHandlerRootView>
+    </SwipeDeckContext.Provider>
   );
 };
 

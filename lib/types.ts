@@ -19,8 +19,6 @@ export type SwipeStatus = 'idle' | 'animating-in' | 'animating-out' | 'done-anim
 
 export type SwipeableData<T> = {
     id: number;
-    status: SwipeStatus;
-    direction?: SwipeDirection;
     data: T;
 };
 
@@ -35,5 +33,6 @@ export interface SwipeDeckRef<T extends object> {
 
 let _nextId = 0;
 export const createSwipeableData = <T extends object>(data: T): SwipeableData<T> => ({
-    id: _nextId++, status: 'idle', data
+    id: _nextId++, data
 });
+    
