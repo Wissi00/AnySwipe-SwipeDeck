@@ -417,6 +417,7 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
         return { opacity: 0 };
     });
 
+
     return (
         <View
             pointerEvents={isTop ? 'auto' : 'none'}
@@ -432,29 +433,33 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
                     {children}
                     {overlayConfig?.right && (
                         <Animated.View style={[styles.overlay, { backgroundColor: overlayConfig.right.color ?? 'transparent' }, rightOverlayStyle]}>
-                            <Animated.View style={[rightIconStyle, { position: 'absolute', top: 20, left: 20 }]}>
+                            <Animated.View style={[rightIconStyle, { position: 'absolute', top: 20, left: 20, alignItems: 'center' }, overlayConfig.right.iconContainerStyle]}>
                                 {overlayConfig.right.icon}
+                                {overlayConfig.right.label}
                             </Animated.View>
                         </Animated.View>
                     )}
                     {overlayConfig?.left && (
                         <Animated.View style={[styles.overlay, { backgroundColor: overlayConfig.left.color ?? 'transparent' }, leftOverlayStyle]}>
-                            <Animated.View style={[leftIconStyle, { position: 'absolute', top: 20, right: 20 }]}>
+                            <Animated.View style={[leftIconStyle, { position: 'absolute', top: 20, right: 20, alignItems: 'center' }, overlayConfig.left.iconContainerStyle]}>
                                 {overlayConfig.left.icon}
+                                {overlayConfig.left.label}
                             </Animated.View>
                         </Animated.View>
                     )}
                     {overlayConfig?.up && (
                         <Animated.View style={[styles.overlay, { backgroundColor: overlayConfig.up.color ?? 'transparent' }, upOverlayStyle]}>
-                            <Animated.View style={[upIconStyle, { position: 'absolute', bottom: 20, alignSelf: 'center' }]}>
+                            <Animated.View style={[upIconStyle, { position: 'absolute', bottom: 20, alignSelf: 'center', alignItems: 'center' }, overlayConfig.up.iconContainerStyle]}>
                                 {overlayConfig.up.icon}
+                                {overlayConfig.up.label}
                             </Animated.View>
                         </Animated.View>
                     )}
                     {overlayConfig?.down && (
                         <Animated.View style={[styles.overlay, { backgroundColor: overlayConfig.down.color ?? 'transparent' }, downOverlayStyle]}>
-                            <Animated.View style={[downIconStyle, { position: 'absolute', top: 20, alignSelf: 'center' }]}>
+                            <Animated.View style={[downIconStyle, { position: 'absolute', top: 20, alignSelf: 'center', alignItems: 'center' }, overlayConfig.down.iconContainerStyle]}>
                                 {overlayConfig.down.icon}
+                                {overlayConfig.down.label}
                             </Animated.View>
                         </Animated.View>
                     )}

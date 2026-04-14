@@ -4,7 +4,7 @@ import { styles } from "@/styles/Discover.styles";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useRef } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 type MediaCardData = { id: string };
@@ -34,7 +34,7 @@ export default function Discover() {
   };
 
   const handleSwipeLeft = (item: MediaCardData) => {
-   console.log(`Action: Card swiped LEFT`, item);
+    console.log(`Action: Card swiped LEFT`, item);
   };
 
   const handleSwipeRight = (item: MediaCardData) => {
@@ -66,10 +66,10 @@ export default function Discover() {
         onCardPress={handleCardPress}
         onRemainingChange={handleRemainingChange}
         overlayConfig={{
-          left: { color: "#FF3B30", icon : <Ionicons name="close" size={48} color="white" /> },
-          right: { color: "#4CD964", icon : <Ionicons name="checkmark" size={48} color="white" /> },
-          up: { color: "#FFD60A", icon : <Ionicons name="arrow-up" size={48} color="white" /> },
-          down: { color: "#007AFF", icon : <Ionicons name="arrow-down" size={48} color="white" /> },
+          left: { color: "#FF3B30", icon: <Ionicons name="close" size={48} color="white" />, label: <Text style={overlayStyles.label}>Skip</Text> },
+          right: { color: "#4CD964", icon: <Ionicons name="checkmark" size={48} color="white" />, label: <Text style={overlayStyles.label}>Watched</Text> },
+          up: { color: "#FFD60A", icon: <Ionicons name="arrow-up" size={48} color="white" />, label: <Text style={overlayStyles.label}>Plan to Watch</Text> },
+          down: { color: "#007AFF", icon: <Ionicons name="arrow-down" size={48} color="white" />, label: <Text style={overlayStyles.label}>Watching</Text> },
         }}
         debug
       />
@@ -95,3 +95,19 @@ export default function Discover() {
     </SafeAreaView>
   );
 }
+
+const overlayStyles = StyleSheet.create({
+  label: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '800',
+    marginTop: 8,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+});

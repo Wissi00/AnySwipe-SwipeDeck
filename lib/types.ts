@@ -1,10 +1,13 @@
 import type { ReactNode } from 'react';
+import type { ViewStyle } from 'react-native';
 
 export type SwipeDirection = 'left' | 'right' | 'up' | 'down';
 
 export type DirectionOverlayConfig = {
     color?: string;
     icon?: ReactNode;
+    label?: ReactNode;
+    iconContainerStyle?: ViewStyle;
     maxOpacity?: number;
 };
 
@@ -35,4 +38,3 @@ let _nextId = 0;
 export const createSwipeableData = <T extends object>(data: T): SwipeableData<T> => ({
     id: _nextId++, data
 });
-    
