@@ -310,10 +310,21 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
             if (frontCardTranslateX) frontCardTranslateX.value = translateX.value;
             if (frontCardTranslateY) frontCardTranslateY.value = translateY.value;
 
+            // withTiming to an already-reached value completes immediately instead of
+            // running for its duration, so the idle transition must ride the axis that
+            // actually moves — otherwise horizontal undos flip to idle while still off-screen
+            const isHorizontal = direction === 'left' || direction === 'right';
+
             // Animate back to center
-            translateX.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
+            translateX.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) }, (finished) => {
+                if (finished && isHorizontal) {
+                    swipeableStatuses.value = swipeableStatuses.value.map(s =>
+                        s.id === id ? { ...s, status: 'idle' as const } : s
+                    );
+                }
+            });
             translateY.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) }, (finished) => {
-                if (finished) {
+                if (finished && !isHorizontal) {
                     swipeableStatuses.value = swipeableStatuses.value.map(s =>
                         s.id === id ? { ...s, status: 'idle' as const } : s
                     );
