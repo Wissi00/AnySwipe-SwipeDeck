@@ -1,6 +1,6 @@
 {
   "name": "anyswipe-swipedeck-demo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "main": "expo-router/entry",
   "description": "Expo demo app for the AnySwipe SwipeDeck library.",
