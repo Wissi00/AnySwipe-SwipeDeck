@@ -268,7 +268,11 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
                 case 'right': targetX = horizontalExit; targetY = currentY; break;
                 case 'up': targetX = currentX; targetY = -verticalExit; break;
                 case 'down': targetX = currentX; targetY = verticalExit; break;
-                default: throw new Error(`Swipeable: direction must be provided when animating. Current: ${direction}`);
+                default:
+                    // A throw here is uncaught by the host app: React unmounts its whole tree.
+                    // A card with no direction has nowhere to go, so it is left where it is.
+                    console.warn(`Swipeable: direction must be provided when animating. Current: ${direction}`);
+                    return;
             }
 
             let duration = 300;
