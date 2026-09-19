@@ -176,6 +176,8 @@ const {
 | `onCardPress`       | `(item: T) => void`       | No       | Called when the top card is tapped. Swipes do not trigger taps.                                                    |
 | `onRemainingChange` | `(count: number) => void` | No       | Called whenever the remaining card count changes. Fires with `0` on first mount — use as the initial load trigger. |
 | `overlayConfig`     | `SwipeOverlayConfig`      | No       | Configures visual overlays (colors, icons, opacities) that appear during swipes in each direction.                 |
+| `overlayConfigForItem` | `(item: T) => SwipeOverlayConfig \| null` | No | Per-card overlays, overriding `overlayConfig`. Return `null` to render no overlay at all for that card — useful for cards whose content must never be covered. |
+| `disableCardPressForItem` | `(item: T) => boolean`  | No       | Return `true` to drop the deck's Tap recognizer for that card while keeping its pan/swipe gestures. The card's own content then receives its touch events directly. |
 | `debug`             | `boolean`                 | No       | Enables verbose console logging of internal state transitions. Defaults to `false`.                                |
 
 ---

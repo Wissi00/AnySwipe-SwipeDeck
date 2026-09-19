@@ -228,7 +228,9 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
             if (onCardPress) runOnJS(onCardPress)();
         });
 
-    const gesture = Gesture.Simultaneous(panGesture, tapGesture);
+    // Without a parent Tap recognizer, embedded content (e.g. native ad assets)
+    // receives its own touch events instead of having them intercepted.
+    const gesture = onCardPress ? Gesture.Simultaneous(panGesture, tapGesture) : panGesture;
 
 
     // ----------------------------- SWIPE ANIMATION -----------------------------

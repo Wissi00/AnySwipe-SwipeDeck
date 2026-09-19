@@ -74,11 +74,15 @@ interface SwipeDeckProps<T extends object> {
   onCardPress?: (item: T) => void;
   onRemainingChange?: (count: number) => void;
   overlayConfig?: SwipeOverlayConfig;
+  /** Per-item overlays; return null to render no gesture overlay for that card. */
+  overlayConfigForItem?: (item: T) => SwipeOverlayConfig | null;
+  /** Removes the deck Tap recognizer while retaining its Pan dismissal gesture. */
+  disableCardPressForItem?: (item: T) => boolean;
   debug?: boolean;
 }
 
 const SwipeDeckInner = <T extends object>(
-  { ItemComponent, onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown, onCardPress, onRemainingChange, overlayConfig, debug = false }: SwipeDeckProps<T>,
+  { ItemComponent, onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown, onCardPress, onRemainingChange, overlayConfig, overlayConfigForItem, disableCardPressForItem, debug = false }: SwipeDeckProps<T>,
   ref: React.ForwardedRef<SwipeDeckRef<T>>,
 ) => {
   const {
@@ -139,8 +143,8 @@ return (
                 onSwipeRight={() => relaySwipe(swipeable.id, "right")}
                 onSwipeUp={() => relaySwipe(swipeable.id, "up")}
                 onSwipeDown={() => relaySwipe(swipeable.id, "down")}
-                onCardPress={() => onCardPress?.(swipeable.data)}
-                overlayConfig={overlayConfig}
+                onCardPress={disableCardPressForItem?.(swipeable.data) ? undefined : () => onCardPress?.(swipeable.data)}
+                overlayConfig={overlayConfigForItem ? overlayConfigForItem(swipeable.data) || undefined : overlayConfig}
               >
                 <ItemComponent {...swipeable.data} />
               </SwipeableWrapper>
