@@ -182,6 +182,26 @@ const {
 
 ---
 
+### `useSwipeableCard()`
+
+Call from inside your `ItemComponent` to learn whether that card is currently the deck's front card.
+
+```tsx
+import { useSwipeableCard } from "anyswipe-swipedeck";
+
+function AdCard(props: AdData) {
+  const { isFront } = useSwipeableCard();
+  // Back cards are mounted behind the front card. Hold the placeholder until
+  // the card is uncovered, so an ad view records its impression only when the
+  // user can actually see it.
+  return isFront ? <NativeAdView {...props} /> : <AdPlaceholder />;
+}
+```
+
+Returns `{ isFront: boolean }`. `isFront` is `true` for the first idle card — it flips as soon as the card in front starts animating out. Outside a deck the hook reports `isFront: true`.
+
+---
+
 ### `createSwipeableData<T>(data: T): SwipeableData<T>`
 
 Wraps your domain data in the internal format required by `appendData`. Auto-assigns a unique ID.
@@ -282,6 +302,8 @@ const { undo } = useSwipeDeck<CardData>();
 ### Card rendering
 
 Only the top 3 idle cards plus any cards that are currently animating are mounted at a time. Cards deeper in the queue are not rendered until they reach the top, keeping the component tree shallow regardless of batch size.
+
+The two cards behind the front card are mounted and laid out, scaled and offset behind it. If a card's content should only be rendered once it is visible — an ad view that reports an impression when attached, a video that starts on mount — gate it on `useSwipeableCard().isFront`.
 
 ### Programmatic swiping
 

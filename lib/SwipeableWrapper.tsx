@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Dimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -12,6 +12,7 @@ import Animated, {
     withTiming,
     type SharedValue,
 } from 'react-native-reanimated';
+import { SwipeableCardContext } from './SwipeableCardContext';
 import { useSwipeDeckContext } from './SwipeDeckContext';
 import { styles } from './styles/SwipeableWrapper.styles';
 import { SwipeDirection, SwipeOverlayConfig, SwipeStatus } from './types';
@@ -35,6 +36,17 @@ export interface SwipeableWrapperProps {
 
 const SWIPE_THRESHOLD = screenWidth * 0.35;
 const VELOCITY_THRESHOLD = 800;
+/**
+ * How far a finger must travel before the card starts following it.
+ *
+ * Without a threshold the Pan recognizer activates on the faintest movement,
+ * and an activating recognizer cancels the touch for every view beneath it.
+ * That costs nothing for content whose taps are recognized by this deck, but
+ * embedded content that handles its own touches — a native ad whose SDK
+ * attaches real click listeners to its asset views — never sees the end of the
+ * gesture, so it can never be tapped.
+ */
+const PAN_ACTIVATION_DISTANCE = 10;
 const MAX_OPACITY_THRESHOLD_WIDTH = screenWidth * 0.75;
 const MAX_OPACITY_THRESHOLD_HEIGHT = screenHeight * 0.5;
 const ICONMINOPACITY = 0.5;
@@ -75,6 +87,8 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
         }
     );
 
+    const cardState = useMemo(() => ({ isFront: isTop }), [isTop]);
+
     // Initialize positions based on status to prevent the (0,0) flash on mount
     const getInitialX = () => {
         if (status !== 'animating-in') return 0;
@@ -109,6 +123,7 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
 
     const panGesture = Gesture.Pan()
         .enabled(isTop)
+        .minDistance(PAN_ACTIVATION_DISTANCE)
         .onUpdate((event) => {
             if (dismissedByGesture.value) return;
             translateX.value = event.translationX;
@@ -228,8 +243,9 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
             if (onCardPress) runOnJS(onCardPress)();
         });
 
-    // Without a parent Tap recognizer, embedded content (e.g. native ad assets)
-    // receives its own touch events instead of having them intercepted.
+    // Embedded content that handles its own touches (native ad assets) needs no
+    // Tap recognizer here; PAN_ACTIVATION_DISTANCE is what keeps its own click
+    // handling intact.
     const gesture = onCardPress ? Gesture.Simultaneous(panGesture, tapGesture) : panGesture;
 
 
@@ -447,7 +463,7 @@ export const SwipeableWrapper: React.FC<SwipeableWrapperProps> = ({
                         swipeableHeight.value = event.nativeEvent.layout.height;
                     }}
                 >
-                    {children}
+                    <SwipeableCardContext.Provider value={cardState}>{children}</SwipeableCardContext.Provider>
                     {overlayConfig?.right && (
                         <Animated.View style={[styles.overlay, { backgroundColor: overlayConfig.right.color ?? 'transparent' }, rightOverlayStyle]}>
                             <Animated.View style={[rightIconStyle, { position: 'absolute', top: 20, left: 20, alignItems: 'center' }, overlayConfig.right.iconContainerStyle]}>
