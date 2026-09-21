@@ -45,3 +45,5 @@ app-example
 
 # vscode
 .vscode/
+# Firebase emulator/debug logs
+firebase-debug.log
