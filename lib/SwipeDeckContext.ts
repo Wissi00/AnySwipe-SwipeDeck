@@ -1,11 +1,11 @@
 import { createContext, useContext } from 'react';
 import type { SharedValue } from 'react-native-reanimated';
-import type { SwipeDirection, SwipeStatus } from './types';
-
-export type SwipeableStatusEntry = { id: number; status: SwipeStatus; direction?: SwipeDirection };
+import type { SwipeDirection } from './types';
+import type { DeckState } from './state';
 
 interface SwipeDeckContextValue {
-    swipeableStatuses: SharedValue<SwipeableStatusEntry[]>;
+    state: SharedValue<DeckState>;
+    requestSwipe: (id: number, direction: SwipeDirection) => boolean;
 }
 
 export const SwipeDeckContext = createContext<SwipeDeckContextValue | null>(null);

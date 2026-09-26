@@ -32,6 +32,8 @@ export interface SwipeDeckRef<T extends object> {
     swipeDown: () => void;
     undo: () => void;
     appendData: (items: SwipeableData<T>[]) => void;
+    /** Remove unavailable cards and their undo entries without firing a swipe. */
+    removeData: (ids: number[]) => void;
 }
 
 let _nextId = 0;

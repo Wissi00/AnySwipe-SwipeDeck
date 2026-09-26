@@ -1,9 +1,7 @@
-import React, { forwardRef, useImperativeHandle } from "react";
-import { Dimensions, StyleSheet } from "react-native";
+import React, { forwardRef, memo, useImperativeHandle, useMemo } from "react";
+import { StyleSheet, useWindowDimensions } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
-  Extrapolation,
-  interpolate,
   useAnimatedStyle,
   useSharedValue,
   type SharedValue,
@@ -12,58 +10,37 @@ import { SwipeDeckContext, useSwipeDeckContext } from "./SwipeDeckContext";
 import { SwipeableWrapper } from "./SwipeableWrapper";
 import { useSwipeState } from "./hooks/useSwipeState";
 import { styles } from "./styles/SwipeDeck.styles";
-import { SwipeableData, SwipeDeckRef, SwipeOverlayConfig } from "./types";
+import { stackPosition, type StackProgress } from "./stack";
+import { SwipeDeckRef, SwipeOverlayConfig } from "./types";
 
-const { width: screenWidth } = Dimensions.get("window");
-const SWIPE_THRESHOLD = screenWidth * 0.35;
 
 interface StackSlotProps {
   id: number;
-  frontCardTranslateX: SharedValue<number>;
-  frontCardTranslateY: SharedValue<number>;
+  progress: SharedValue<StackProgress>;
   children: React.ReactNode;
 }
 
-const StackSlot = ({ id, frontCardTranslateX, frontCardTranslateY, children }: StackSlotProps) => {
-  const { swipeableStatuses } = useSwipeDeckContext();
+const StackSlot = ({ id, progress, children }: StackSlotProps) => {
+  const { state } = useSwipeDeckContext();
+  const { width } = useWindowDimensions();
+  const threshold = width * 0.35;
 
   const style = useAnimatedStyle(() => {
-    const statuses = swipeableStatuses.value;
-    let stackOffset = 0;
-    let idleCount = 0;
-    for (let i = 0; i < statuses.length; i++) {
-      if (statuses[i].status === "idle") {
-        if (statuses[i].id === id) {
-          stackOffset = idleCount;
-          break;
-        }
-        idleCount++;
-      }
-    }
-
-    const currentScale = 1 - stackOffset * 0.05;
-    const targetScale = 1 - Math.max(0, stackOffset - 1) * 0.05;
-    const currentVertOffset = stackOffset * 16;
-    const targetVertOffset = Math.max(0, stackOffset - 1) * 16;
-
-    let dynScale = currentScale;
-    let dynOffset = currentVertOffset;
-
-    if (stackOffset > 0) {
-      const maxDist = Math.max(Math.abs(frontCardTranslateX.value), Math.abs(frontCardTranslateY.value));
-      if (maxDist > 0) {
-        dynOffset = interpolate(maxDist, [0, SWIPE_THRESHOLD], [currentVertOffset, targetVertOffset], Extrapolation.CLAMP);
-        dynScale = interpolate(maxDist, [0, SWIPE_THRESHOLD], [currentScale, targetScale], Extrapolation.CLAMP);
-      }
-    }
-
+    const { scale, translateY } = stackPosition(state.value.cards, id, progress.value, threshold);
     return {
-      transform: [{ scale: dynScale }, { translateY: dynOffset }],
+      transform: [{ scale }, { translateY }],
     };
   });
 
-  return <Animated.View style={[StyleSheet.absoluteFillObject, style]}>{children}</Animated.View>;
+  return <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFillObject, style]}>{children}</Animated.View>;
 };
+
+// Status changes must not re-render expensive poster/card content.
+const CardContent = memo(function CardContent<T extends object>({ ItemComponent, data }: {
+  ItemComponent: React.ComponentType<T>; data: T;
+}) { return <ItemComponent {...data} />; }) as <T extends object>(props: {
+  ItemComponent: React.ComponentType<T>; data: T;
+}) => React.ReactElement;
 
 interface SwipeDeckProps<T extends object> {
   ItemComponent: React.ComponentType<T>;
@@ -72,6 +49,12 @@ interface SwipeDeckProps<T extends object> {
   onSwipeUp?: (item: T) => void;
   onSwipeDown?: (item: T) => void;
   onCardPress?: (item: T) => void;
+  /** Fired only when the deck accepts an undo. */
+  onUndo?: (item: T) => void;
+  /** Retained undo payloads; default unlimited, 0 disables history. */
+  maxHistorySize?: number;
+  /** Lock input at acceptance until the swipe callback's promise settles. */
+  waitForSwipe?: boolean;
   onRemainingChange?: (count: number) => void;
   overlayConfig?: SwipeOverlayConfig;
   /** Per-item overlays; return null to render no gesture overlay for that card. */
@@ -82,71 +65,45 @@ interface SwipeDeckProps<T extends object> {
 }
 
 const SwipeDeckInner = <T extends object>(
-  { ItemComponent, onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown, onCardPress, onRemainingChange, overlayConfig, overlayConfigForItem, disableCardPressForItem, debug = false }: SwipeDeckProps<T>,
+  { ItemComponent, onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown, onCardPress, onUndo, maxHistorySize, waitForSwipe, onRemainingChange, overlayConfig, overlayConfigForItem, disableCardPressForItem, debug = false }: SwipeDeckProps<T>,
   ref: React.ForwardedRef<SwipeDeckRef<T>>,
 ) => {
-  const {
-    swipeablesArrayData,
-    swipeablesToRender,
-    swipeableStatuses,
-    appendData,
-    relaySwipe,
-    setStatusOutAndRelaySwipe,
-    undoFromHistory,
-  } = useSwipeState<T>({ onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown, onRemainingChange, debug });
+  const { state, cards, requestSwipe, swipe, undo, appendData, removeData } = useSwipeState<T>({
+    onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown, onUndo, maxHistorySize, waitForSwipe, onRemainingChange, debug,
+  });
+  const context = useMemo(() => ({ state, requestSwipe }), [state, requestSwipe]);
 
-  const topCardTranslateX = useSharedValue(0);
-  const topCardTranslateY = useSharedValue(0);
+  const progress = useSharedValue<StackProgress>({ id: null, transition: 0, x: 0, y: 0 });
 
   useImperativeHandle(ref, () => ({
-    swipeLeft: () => {
-      const top = swipeableStatuses.value.find((s) => s.status === "idle");
-      if (top) {
-         setStatusOutAndRelaySwipe(top.id, "left"); } else {
-         console.warn("No card available to swipe LEFT");
-      }
-    },
-    swipeRight: () => {
-      const top = swipeableStatuses.value.find((s) => s.status === "idle");
-      if (top) setStatusOutAndRelaySwipe(top.id, "right");
-    },
-    swipeUp: () => {
-      const top = swipeableStatuses.value.find((s) => s.status === "idle");
-      if (top) setStatusOutAndRelaySwipe(top.id, "up");
-    },
-    swipeDown: () => {
-      const top = swipeableStatuses.value.find((s) => s.status === "idle");
-      if (top) setStatusOutAndRelaySwipe(top.id, "down");
-    },
-    undo: undoFromHistory,
-    appendData: (items: SwipeableData<T>[]) => appendData(items),
-  }));
-return (
-    <SwipeDeckContext.Provider value={{ swipeableStatuses }}>
+    swipeLeft: () => swipe('left'),
+    swipeRight: () => swipe('right'),
+    swipeUp: () => swipe('up'),
+    swipeDown: () => swipe('down'),
+    undo,
+    appendData,
+    removeData,
+  }), [swipe, undo, appendData, removeData]);
+  return (
+    <SwipeDeckContext.Provider value={context}>
     <GestureHandlerRootView style={styles.deckContainer}>
-      {swipeablesToRender
+      {cards
         .map((swipeable) => {
           return (
             <StackSlot
               key={swipeable.id}
               id={swipeable.id}
-              frontCardTranslateX={topCardTranslateX}
-              frontCardTranslateY={topCardTranslateY}
+              progress={progress}
             >
               <SwipeableWrapper
                 status={swipeable.status}
                 direction={swipeable.direction}
                 id={swipeable.id}
-                frontCardTranslateX={topCardTranslateX}
-                frontCardTranslateY={topCardTranslateY}
-                onSwipeLeft={() => relaySwipe(swipeable.id, "left")}
-                onSwipeRight={() => relaySwipe(swipeable.id, "right")}
-                onSwipeUp={() => relaySwipe(swipeable.id, "up")}
-                onSwipeDown={() => relaySwipe(swipeable.id, "down")}
-                onCardPress={disableCardPressForItem?.(swipeable.data) ? undefined : () => onCardPress?.(swipeable.data)}
+                progress={progress}
+                onCardPress={(!onCardPress || disableCardPressForItem?.(swipeable.data)) ? undefined : () => onCardPress?.(swipeable.data)}
                 overlayConfig={overlayConfigForItem ? overlayConfigForItem(swipeable.data) || undefined : overlayConfig}
               >
-                <ItemComponent {...swipeable.data} />
+                <CardContent ItemComponent={ItemComponent} data={swipeable.data} />
               </SwipeableWrapper>
             </StackSlot>
           );
